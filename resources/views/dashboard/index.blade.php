@@ -180,13 +180,14 @@
                 <div class="card-header">
                     <div>
                         <div class="card-header-title">Kehadiran 7 Hari Terakhir</div>
-                        <p class="card-header-subheader">Jumlah karyawan aktif yang melakukan absensi.</p>
+                        <p class="card-header-subheader">Jumlah karyawan aktif yang melakukan absensi pada hari kerja.</p>
                     </div>
                 </div>
                 <div class="card-content">
                     <div id="weekly-overview-chart"
                          data-labels='@json($weeklyLabels)'
-                         data-values='@json($weeklyCounts)'></div>
+                         data-values='@json($weeklyCounts)'
+                         data-current-index="{{ $weeklyCurrentIndex }}"></div>
                     <div class="d-flex align-center justify-between mt-3">
                         <div>
                             <h5>{{ number_format($weeklyTotal, 0, ',', '.') }}</h5>

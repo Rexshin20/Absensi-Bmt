@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Attendance;
 use App\Models\Employee;
+use App\Services\AttendanceService;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
@@ -38,10 +39,20 @@ class PageController extends Controller
         $weekdayLabels = [1 => 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
         $weeklyLabels = [];
         $weeklyCounts = [];
+        $weeklyCurrentIndex = -1;
+        $workDays = AttendanceService::workDays();
 
         for ($day = $weekStart->copy(); $day->lte(Carbon::parse($today)); $day->addDay()) {
+            if (! in_array($day->isoWeekday(), $workDays, true)) {
+                continue;
+            }
+
             $weeklyLabels[] = $weekdayLabels[$day->isoWeekday()];
             $weeklyCounts[] = (int) ($weeklyAttendanceByDate[$day->toDateString()] ?? 0);
+
+            if ($day->toDateString() === $today) {
+                $weeklyCurrentIndex = count($weeklyLabels) - 1;
+            }
         }
 
         return view('dashboard.index', [
@@ -54,6 +65,7 @@ class PageController extends Controller
             'latestAttendances' => $latestAttendances,
             'weeklyLabels' => $weeklyLabels,
             'weeklyCounts' => $weeklyCounts,
+            'weeklyCurrentIndex' => $weeklyCurrentIndex,
             'weeklyTotal' => array_sum($weeklyCounts),
             'attendanceRate' => $activeEmployees > 0
                 ? (int) round($checkedInCount / $activeEmployees * 100)

@@ -361,6 +361,10 @@
       var labelColor = dark ? 'rgba(232, 240, 235, 0.68)' : 'rgba(58, 53, 65, 0.68)';
       var gridColor = dark ? 'rgba(232, 240, 235, 0.12)' : 'rgba(58, 53, 65, 0.12)';
       var primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-main').trim();
+      var labels = element.dataset.labels ? JSON.parse(element.dataset.labels) : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      var values = element.dataset.values ? JSON.parse(element.dataset.values) : [37, 57, 45, 75, 57, 40, 65];
+      var yAxisMax = Math.max(5, Math.ceil(Math.max.apply(null, values) / 5) * 5);
+      var currentIndex = Number(element.dataset.currentIndex);
 
       var options = {
         chart: {
@@ -385,13 +389,15 @@
           padding: { top: -1, right: 0, left: -12, bottom: 5 }
         },
         dataLabels: { enabled: false },
-        colors: [track, track, track, primaryColor, track, track, track],
+        colors: labels.map(function (_, index) {
+          return index === currentIndex ? primaryColor : track;
+        }),
         states: {
           hover: { filter: { type: 'none' } },
           active: { filter: { type: 'none' } }
         },
         xaxis: {
-          categories: element.dataset.labels ? JSON.parse(element.dataset.labels) : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+          categories: labels,
           tickPlacement: 'on',
           labels: { show: true, style: { colors: labelColor, fontSize: '12px' } },
           axisTicks: { show: false },
@@ -399,12 +405,14 @@
         },
         yaxis: {
           show: true,
-          tickAmount: 4,
+          min: 0,
+          max: yAxisMax,
+          tickAmount: 5,
           labels: {
             offsetX: -17,
             style: { colors: labelColor, fontSize: '12px' },
             formatter: function (value) {
-              return (value > 999 ? (value / 1000).toFixed(0) : value) + 'k';
+              return Math.round(value);
             }
           }
         }
@@ -413,7 +421,7 @@
       options.chart.type = 'bar';
       options.chart.height = 205;
       options.series = [{
-        data: element.dataset.values ? JSON.parse(element.dataset.values) : [37, 57, 45, 75, 57, 40, 65]
+        data: values
       }];
 
       var chart = new ApexCharts(element, options);

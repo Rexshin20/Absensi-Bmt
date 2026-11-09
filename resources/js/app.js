@@ -353,10 +353,11 @@
       }
 
       var dark = isDark();
-      var surface = dark ? '#312d4b' : '#fff';
-      var track = dark ? '#3d3759' : '#f4f5fa';
-      var labelColor = dark ? 'rgba(231, 227, 252, 0.68)' : 'rgba(58, 53, 65, 0.68)';
-      var gridColor = dark ? 'rgba(231, 227, 252, 0.12)' : 'rgba(58, 53, 65, 0.12)';
+      var surface = dark ? '#26352e' : '#fff';
+      var track = dark ? '#35463c' : '#f4f5fa';
+      var labelColor = dark ? 'rgba(232, 240, 235, 0.68)' : 'rgba(58, 53, 65, 0.68)';
+      var gridColor = dark ? 'rgba(232, 240, 235, 0.12)' : 'rgba(58, 53, 65, 0.12)';
+      var primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-main').trim();
 
       var options = {
         chart: {
@@ -381,15 +382,15 @@
           padding: { top: -1, right: 0, left: -12, bottom: 5 }
         },
         dataLabels: { enabled: false },
-        colors: [track, track, track, '#9155fd', track, track, track],
+        colors: [track, track, track, primaryColor, track, track, track],
         states: {
           hover: { filter: { type: 'none' } },
           active: { filter: { type: 'none' } }
         },
         xaxis: {
-          categories: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+          categories: element.dataset.labels ? JSON.parse(element.dataset.labels) : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
           tickPlacement: 'on',
-          labels: { show: false },
+          labels: { show: true, style: { colors: labelColor, fontSize: '12px' } },
           axisTicks: { show: false },
           axisBorder: { show: false }
         },
@@ -408,7 +409,9 @@
 
       options.chart.type = 'bar';
       options.chart.height = 205;
-      options.series = [{ data: [37, 57, 45, 75, 57, 40, 65] }];
+      options.series = [{
+        data: element.dataset.values ? JSON.parse(element.dataset.values) : [37, 57, 45, 75, 57, 40, 65]
+      }];
 
       var chart = new ApexCharts(element, options);
 

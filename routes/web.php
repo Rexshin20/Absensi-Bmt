@@ -23,11 +23,6 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/', [PageController::class, 'dashboard'])->name('dashboard');
     Route::get('/account-settings', [PageController::class, 'accountSettings'])->name('account-settings');
-    Route::get('/cards', [PageController::class, 'cards'])->name('cards');
-    Route::get('/tables', [PageController::class, 'tables'])->name('tables');
-    Route::get('/typography', [PageController::class, 'typography'])->name('typography');
-    Route::get('/form-layouts', [PageController::class, 'formLayouts'])->name('form-layouts');
-    Route::get('/icons', [PageController::class, 'icons'])->name('icons');
     Route::get('/pages/error', [PageController::class, 'errorPage'])->name('pages.error');
     Route::get('/401', [ErrorPageController::class, 'unauthorized'])->name('errors.401');
     Route::get('/404', [ErrorPageController::class, 'notFound'])->name('errors.404');
@@ -89,6 +84,3 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 Route::get('/login', function () {
     return redirect()->route('login');
 })->name('login.alias');
-
-
-

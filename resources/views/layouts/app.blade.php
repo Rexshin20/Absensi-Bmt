@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="initial-scale=1, width=device-width">
-    <meta name="description" content="Materio – Material Design Admin Dashboard Template">
-    <meta name="keywords" content="Material Design, MUI, Admin Template">
+    <meta name="description" content="Sistem informasi absensi karyawan BMT Cinde Barokah.">
+    <meta name="keywords" content="BMT Cinde Barokah, absensi, karyawan">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script>
         (function () {
@@ -16,8 +16,8 @@
         })();
     </script>
     <title>@yield('title', 'Dashboard') · {{ config('app.name') }}</title>
-    <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('images/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/logos/bmt.png') }}?v={{ filemtime(public_path('images/logos/bmt.png')) }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/logos/bmt.png') }}?v={{ filemtime(public_path('images/logos/bmt.png')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/inter.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/fonts/mdi/materialdesignicons.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/materio.css') }}?v={{ filemtime(public_path('assets/css/materio.css')) }}">

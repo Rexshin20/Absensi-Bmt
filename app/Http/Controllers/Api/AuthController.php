@@ -73,6 +73,10 @@ class AuthController extends Controller
                 'status' => $today->statusLabel(),
                 'office' => $today->officeLocation?->name,
                 'distance_m' => $today->distance_m,
+                'source' => $today->sourceLabel(),
+                'photo_url' => $today->photo_path
+                    ? $request->getSchemeAndHttpHost().'/storage/'.$today->photo_path
+                    : null,
             ] : null,
         ]);
     }

@@ -1,5 +1,6 @@
 <footer class="layout-footer">
     <div class="footer-content-container">
-        <span>© {{ date('Y') }} BMT Cinde Barokah</span>
+        <span>© {{ now()->year }} BMT Cinde Barokah. Hak cipta dilindungi.</span>
+        <span class="footer-description">Sistem Informasi Absensi</span>
     </div>
 </footer>

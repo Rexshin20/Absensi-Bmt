@@ -14,8 +14,8 @@
         })();
     </script>
     <title>@yield('title', 'Page') · {{ config('app.name') }}</title>
-    <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('images/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/logos/bmt.png') }}?v={{ filemtime(public_path('images/logos/bmt.png')) }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/logos/bmt.png') }}?v={{ filemtime(public_path('images/logos/bmt.png')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/inter.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/fonts/mdi/materialdesignicons.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/materio.css') }}?v={{ filemtime(public_path('assets/css/materio.css')) }}">

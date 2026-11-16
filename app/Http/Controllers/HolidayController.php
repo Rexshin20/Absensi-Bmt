@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Holiday;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class HolidayController extends Controller
@@ -23,7 +22,7 @@ class HolidayController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Holiday::create($this->validated($request));
+        Holiday::create($this->validated($request) + ['type' => 'nasional']);
 
         return redirect()
             ->route('holidays.index')
@@ -54,7 +53,6 @@ class HolidayController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'start_date' => ['required', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
-            'type' => ['required', Rule::in(array_keys(Holiday::TYPES))],
         ], [
             'name.required' => 'Nama hari libur wajib diisi.',
             'name.max' => 'Nama hari libur maksimal 100 karakter.',
@@ -62,8 +60,6 @@ class HolidayController extends Controller
             'start_date.date' => 'Tanggal tidak valid.',
             'end_date.date' => 'Tanggal selesai tidak valid.',
             'end_date.after_or_equal' => 'Tanggal selesai tidak boleh sebelum tanggal mulai.',
-            'type.required' => 'Jenis libur wajib dipilih.',
-            'type.in' => 'Jenis libur tidak valid.',
         ]);
     }
 }

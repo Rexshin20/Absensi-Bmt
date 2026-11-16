@@ -17,8 +17,10 @@
         .attendance-detail-list dd { margin: 0; color: var(--text-primary); font-size: 0.875rem; overflow-wrap: anywhere; }
         .attendance-detail-list .attendance-detail-wide { grid-column: 1 / -1; }
         .attendance-time { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--text-primary); }
-        .date-row { display: flex; justify-content: flex-start; margin-top: 1rem; }
-        .date-picker { display: flex; align-items: flex-end; gap: 0.625rem; }
+        .date-row { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; }
+        .date-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.625rem; }
+        .date-actions .btn { min-height: 2.75rem; padding-inline: 1rem; }
+        .date-picker { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 0.625rem; }
         .date-picker-field { display: flex; flex-direction: column; gap: 0.375rem; }
         .date-picker-label { color: var(--text-secondary); font-size: 0.75rem; font-weight: 500; letter-spacing: 0.3px; }
         .date-input-wrap { position: relative; display: flex; align-items: center; width: clamp(9rem, 55vw, 14rem); }
@@ -27,19 +29,46 @@
         .date-picker .date-input:hover { border-color: var(--primary-main); }
         .date-picker .date-input:focus { border-color: var(--primary-main); box-shadow: 0 0 0 3px rgba(8, 127, 75, 0.12); }
         .date-picker .date-input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.72; }
+        .location-filter { min-width: 13rem; min-height: 2.75rem; border-color: var(--divider); border-radius: 8px; background-color: var(--bg-paper); }
+        .location-filter:focus { border-color: var(--primary-main); box-shadow: 0 0 0 3px rgba(8, 127, 75, 0.12); }
         .date-nav-button { width: 2.75rem; height: 2.75rem; border: 1px solid var(--divider); border-radius: 8px; color: var(--text-secondary); background-color: var(--bg-paper); transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease; }
         .date-nav-button:hover { color: var(--primary-main); border-color: var(--primary-main); background-color: var(--action-hover); }
         .date-nav-button:focus-visible { outline: 2px solid var(--primary-main); outline-offset: 2px; }
         .summary-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+        .summary-chips .chip { font-variant-numeric: tabular-nums; }
+        .attendance-head { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+        .attendance-head-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 0.75rem; }
+        .attendance-head-row .card-header-title { flex: 0 0 auto; line-height: 1.4; }
         .attendance-detail-trigger { color: var(--primary-main); }
         .attendance-detail-trigger:hover { color: var(--primary-dark); background-color: rgba(8, 127, 75, 0.08); }
         .attendance-detail-trigger:focus-visible { outline: 2px solid var(--primary-main); outline-offset: 2px; }
         .geo-status { margin: 0.5rem 0 0; font-size: 0.8125rem; color: var(--text-secondary); }
         .geo-status.is-error { color: var(--error-main); }
 
+        .attendance-table { min-width: 760px; }
+        .recap-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+
         @media (max-width: 700px) {
             .attendance-detail-layout { grid-template-columns: 1fr; }
             .attendance-detail-photo { max-height: 320px; }
+            .date-picker { width: 100%; }
+            .date-picker label[for="location_id"] { flex: 1 1 100%; }
+            .location-filter { width: 100%; min-width: 0; }
+            .date-actions { width: 100%; }
+            .date-actions .btn { flex: 1 1 100%; }
+            .attendance-head-row .card-header-title { font-size: 1.0625rem; }
+            .attendance-table { min-width: 660px; }
+            .dt-container div.dt-layout-row { padding-left: 1rem; padding-right: 1rem; }
+            .dt-container div.dt-layout-row:not(.dt-layout-table) div.dt-layout-cell { width: 100%; justify-content: flex-start; }
+            .dt-container div.dt-length,
+            .dt-container div.dt-search { width: 100%; }
+            .dt-container div.dt-search input { width: 100%; min-width: 0; }
+            .dt-container div.dt-length select { flex: 0 0 auto; }
+            .dt-container div.dt-buttons { width: 100%; flex-wrap: wrap; }
+            .dt-container div.dt-buttons .dt-button { flex: 1 1 30%; }
+            .dt-container div.dt-info { width: 100%; }
+            .dt-container div.dt-paging { width: 100%; justify-content: center; }
+            .recap-fields { grid-template-columns: 1fr; }
         }
     </style>
 @endpush
@@ -52,15 +81,10 @@
                     <h5 class="mb-1">Absensi</h5>
                     <p class="text-body2 mb-0">Rekap absen masuk karyawan. Absen di luar radius kantor ditolak.</p>
                 </div>
-                <div class="page-toolbar">
-                    <button type="button" class="btn btn-contained" data-modal-open="checkin-modal">
-                        <x-icon name="CrosshairsGps" size="18" class="mr-1" /> Absen Sekarang
-                    </button>
-                </div>
             </div>
             <div class="date-row">
                 <form method="GET" action="{{ route('attendances.index') }}" class="date-picker">
-                    <a href="{{ route('attendances.index', ['date' => $previousDate]) }}"
+                    <a href="{{ route('attendances.index', ['date' => $previousDate, 'location_id' => $locationId]) }}"
                        class="icon-btn date-nav-button" aria-label="hari sebelumnya">
                         <x-icon name="ChevronLeft" />
                     </a>
@@ -71,12 +95,31 @@
                             <input type="date" name="date" id="date" value="{{ $date }}" class="input date-input">
                         </span>
                     </label>
-                    <a href="{{ route('attendances.index', ['date' => $nextDate]) }}"
+                    <a href="{{ route('attendances.index', ['date' => $nextDate, 'location_id' => $locationId]) }}"
                        class="icon-btn date-nav-button" aria-label="hari berikutnya">
                         <x-icon name="ChevronRight" />
                     </a>
+                    <label class="date-picker-field" for="location_id">
+                        <span class="date-picker-label">Lokasi kantor</span>
+                        <select name="location_id" id="location_id" class="input location-filter">
+                            <option value="">Semua lokasi kantor</option>
+                            @foreach ($officeLocations as $officeLocation)
+                                <option value="{{ $officeLocation->id }}" @selected((string) $locationId === (string) $officeLocation->id)>
+                                    {{ $officeLocation->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </label>
                     <noscript><button type="submit" class="btn btn-outlined btn-sm">Lihat</button></noscript>
                 </form>
+                <div class="date-actions">
+                    <button type="button" class="btn btn-outlined" data-modal-open="recap-modal">
+                        <x-icon name="FileChartOutline" size="18" class="mr-1" /> Buat Rekap Bulanan
+                    </button>
+                    <button type="button" class="btn btn-contained" data-modal-open="checkin-modal">
+                        <x-icon name="CrosshairsGps" size="18" class="mr-1" /> Absen Sekarang
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -102,27 +145,25 @@
         <div class="grid-item col-12">
             <div class="card">
                 <div class="card-header">
-                    <div class="d-flex align-center justify-between flex-wrap gap-3">
-                        <div>
-                            <div class="card-header-title" style="font-size: 1.25rem;">
-                                Daftar Absen — {{ $dateLabel }}
+                    <div class="attendance-head">
+                        <div class="attendance-head-row">
+                            <span class="card-header-title">Daftar Absen — {{ $dateLabel }}</span>
+                            <div class="summary-chips">
+                                <span class="chip chip-sm chip-success">{{ $presentCount }} Hadir</span>
+                                <span class="chip chip-sm chip-error">{{ $lateCount }} Terlambat</span>
+                                <span class="chip chip-sm">{{ $missingCount }} Belum absen</span>
                             </div>
-                            <p class="card-header-subheader">Batas jam masuk {{ $workStart }} WIB.</p>
                         </div>
-                        <div class="summary-chips">
-                            <span class="chip chip-sm chip-success">{{ $presentCount }} Hadir</span>
-                            <span class="chip chip-sm chip-error">{{ $lateCount }} Terlambat</span>
-                            <span class="chip chip-sm">{{ $missingCount }} Belum absen</span>
-                        </div>
+                        <p class="card-header-subheader">Batas jam masuk {{ $workStart }} WIB.</p>
                     </div>
                 </div>
-                <table class="table" data-table
+                <table class="table attendance-table" data-table
                        data-export
                        data-export-title="Rekap Absensi Harian"
-                       data-export-message="Tanggal {{ $dateLabel }} — batas jam masuk {{ $workStart }} WIB"
+                       data-export-message="Tanggal {{ $dateLabel }} — {{ $selectedLocation?->name ?? 'Semua lokasi kantor' }} — batas jam masuk {{ $workStart }} WIB"
                        data-export-filename="absensi-{{ $date }}"
                        data-empty="Belum ada absen pada tanggal ini. Klik tombol Absen Sekarang untuk mencatat absen."
-                       style="min-width: 760px;" aria-label="daftar absen">
+                       aria-label="daftar absen">
                     <thead>
                         <tr>
                             <th>Karyawan</th>
@@ -171,7 +212,7 @@
                                             data-distance="{{ number_format($attendance->distance_m, 0, ',', '.') }} m dari titik kantor"
                                             data-source="{{ $attendance->sourceLabel() }}"
                                             data-coordinates="{{ number_format($attendance->latitude, 7, '.', ',') }}, {{ number_format($attendance->longitude, 7, '.', ',') }}"
-                                            data-photo="{{ $attendance->photo_path ? asset('storage/' . $attendance->photo_path) : '' }}">
+                                            data-photo="{{ $attendance->photoUrl() ?? '' }}">
                                         <x-icon name="EyeOutline" size="20" />
                                     </button>
                                 </td>
@@ -222,6 +263,44 @@
                 <button type="submit" class="btn btn-contained" id="checkin-submit">Ambil Lokasi & Absen</button>
             </div>
         </form>
+    </x-crud-modal>
+
+    {{-- Modal rekap bulanan --}}
+    <x-crud-modal id="recap-modal"
+                  title="Buat Rekap Bulanan"
+                  subheader="Pilih bulan dan format file, lalu unduh rekapnya.">
+        <div class="modal-content">
+            <div class="recap-fields">
+                <div class="form-control">
+                    <select id="recap-month" class="input">
+                        @foreach ($recapMonths[now()->year] ?? [] as $monthNumber)
+                            <option value="{{ $monthNumber }}" @selected($monthNumber === (int) now()->month)>{{ $recapMonthNames[$monthNumber - 1] }}</option>
+                        @endforeach
+                    </select>
+                    <label class="form-label-float" for="recap-month">Bulan</label>
+                </div>
+                <div class="form-control">
+                    <select id="recap-year" class="input">
+                        @foreach ($recapYears as $year)
+                            <option value="{{ $year }}" @selected($year === (int) now()->year)>{{ $year }}</option>
+                        @endforeach
+                    </select>
+                    <label class="form-label-float" for="recap-year">Tahun</label>
+                </div>
+            </div>
+            <div class="form-control" style="margin-top: 1rem;">
+                <select id="recap-format" class="input">
+                    <option value="pdf">PDF (.pdf)</option>
+                    <option value="xlsx">Excel (.xlsx)</option>
+                </select>
+                <label class="form-label-float" for="recap-format">Format file</label>
+            </div>
+            <p class="geo-status">Lokasi: {{ $selectedLocation?->name ?? 'Semua lokasi kantor' }}</p>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-text" data-modal-close>Batal</button>
+            <button type="button" class="btn btn-contained" id="recap-download">Unduh Rekap</button>
+        </div>
     </x-crud-modal>
 
     <x-crud-modal id="attendance-detail-modal"
@@ -331,6 +410,39 @@
             var dateInput = document.getElementById('date');
             dateInput.addEventListener('change', function () {
                 if (dateInput.value) dateInput.closest('form').submit();
+            });
+
+            document.getElementById('location_id').addEventListener('change', function () {
+                this.form.submit();
+            });
+
+            var recapMonth = document.getElementById('recap-month');
+            var recapYear = document.getElementById('recap-year');
+            var recapMonths = @json($recapMonths);
+            var recapMonthNames = @json($recapMonthNames);
+
+            recapYear.addEventListener('change', function () {
+                var options = recapMonths[recapYear.value] || [];
+
+                recapMonth.innerHTML = '';
+
+                options.forEach(function (monthNumber) {
+                    var option = document.createElement('option');
+                    option.value = monthNumber;
+                    option.textContent = recapMonthNames[monthNumber - 1];
+                    recapMonth.appendChild(option);
+                });
+            });
+
+            var recapDownload = document.getElementById('recap-download');
+            recapDownload.addEventListener('click', function () {
+                var url = new URL(@json(route('attendances.recap.export', ['format' => '__format__'])), window.location.origin);
+                url.pathname = url.pathname.replace('__format__', document.getElementById('recap-format').value);
+                url.searchParams.set('month', recapYear.value + '-' + String(recapMonth.value).padStart(2, '0'));
+                @if ($locationId)
+                    url.searchParams.set('location_id', @json((string) $locationId));
+                @endif
+                window.location.href = url.toString();
             });
 
             var form = document.getElementById('checkin-form');

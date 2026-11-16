@@ -4,8 +4,20 @@
 
 @push('styles')
     <style>
-        .day-options { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
-        .day-options .checkbox-label { font-size: 0.9375rem; color: var(--text-primary); }
+        .work-form { display: flex; flex-direction: column; gap: 1.5rem; }
+        .work-time { max-width: 14rem; }
+        .day-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: 0.5rem; }
+        .day-option {
+            display: flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; padding: 0 0.875rem;
+            border: 1px solid var(--divider); border-radius: 8px; background-color: var(--bg-paper);
+            font-size: 0.875rem; color: var(--text-primary); cursor: pointer;
+            transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+        }
+        .day-option:hover { border-color: var(--primary-main); }
+        .day-option:has(input:checked) { border-color: var(--primary-main); background-color: rgba(8, 127, 75, 0.08); color: var(--primary-dark); font-weight: 500; }
+        .day-option input { margin: 0; accent-color: var(--primary-main); }
+        .work-helper { margin: 0; }
+        .card-actions.work-actions { justify-content: flex-end; padding: 0.875rem 1.25rem; border-top: 1px solid var(--divider); }
     </style>
 @endpush
 
@@ -34,7 +46,7 @@
             <div class="card">
                 <div class="card-header">
                     <div>
-                        <div class="card-header-title" style="font-size: 1.25rem;">Pengaturan Hari Kerja</div>
+                        <div class="card-header-title">Pengaturan Hari Kerja</div>
                         <p class="card-header-subheader">Absen setelah jam masuk otomatis berstatus Terlambat.</p>
                     </div>
                 </div>
@@ -51,8 +63,8 @@
                             </div>
                         @endif
 
-                        <div class="grid">
-                            <div class="grid-item col-12 col-md-4">
+                        <div class="work-form">
+                            <div class="work-time">
                                 <div class="form-control">
                                     <input id="work_start_time" name="work_start_time" type="time"
                                            value="{{ old('work_start_time', $workStart) }}"
@@ -61,11 +73,11 @@
                                 </div>
                             </div>
 
-                            <div class="grid-item col-12 col-md-8">
+                            <div>
                                 <span class="form-label">Hari kerja</span>
                                 <div class="day-options">
                                     @foreach ($days as $value => $label)
-                                        <label class="checkbox-label">
+                                        <label class="day-option">
                                             <input type="checkbox" name="work_days[]" value="{{ $value }}"
                                                    @checked(in_array($value, $workDays, true))>
                                             {{ $label }}
@@ -73,14 +85,14 @@
                                     @endforeach
                                 </div>
                             </div>
-                        </div>
 
-                        <p class="form-helper" style="margin-left: 0;">
-                            Hari yang tidak dicentang otomatis dianggap libur mingguan, contoh: centang Senin sampai Sabtu jika kantor libur setiap Minggu.
-                        </p>
+                            <p class="form-helper work-helper">
+                                Hari yang tidak dicentang otomatis dianggap libur mingguan, contoh: centang Senin sampai Sabtu jika kantor libur setiap Minggu.
+                            </p>
+                        </div>
                     </div>
 
-                    <div class="card-actions justify-end">
+                    <div class="card-actions work-actions">
                         <button type="submit" class="btn btn-contained">Simpan Pengaturan</button>
                     </div>
                 </form>

@@ -119,19 +119,6 @@
                 </div>
 
                 <div class="form-control">
-                    <select id="type" name="type" class="input @error('type') input-error @enderror">
-                        <option value="">Pilih jenis</option>
-                        @foreach (\App\Models\Holiday::TYPES as $value => $label)
-                            <option value="{{ $value }}"
-                                @selected(old('type', $editHoliday->type ?? '') === $value)>
-                                {{ $label }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <label class="form-label-float" for="type">Jenis Libur</label>
-                </div>
-
-                <div class="form-control">
                     <input id="start_date" name="start_date" type="date"
                            value="{{ old('start_date', $editHoliday?->start_date?->format('Y-m-d')) }}"
                            class="input @error('start_date') input-error @enderror">

@@ -124,9 +124,7 @@ class AttendanceController extends Controller
             'office' => $attendance->officeLocation?->name,
             'distance_m' => $attendance->distance_m,
             'source' => $attendance->sourceLabel(),
-            'photo_url' => $attendance->photo_path
-                ? $request->getSchemeAndHttpHost().'/storage/'.$attendance->photo_path
-                : null,
+            'photo_url' => $attendance->photoUrl(),
         ];
     }
 
@@ -147,7 +145,7 @@ class AttendanceController extends Controller
             }
         }
 
-        return Storage::disk('public')->put($path, $bytes) ? $path : null;
+        return Storage::disk('local')->put($path, $bytes) ? $path : null;
     }
 
     private function resizeToJpeg(string $bytes): ?string

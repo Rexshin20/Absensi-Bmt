@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\AttendancePhotoController;
+use App\Http\Controllers\AttendanceReportController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DivisionController;
 use App\Http\Controllers\EmployeeController;
@@ -17,7 +19,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
     Route::get('/pages/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/pages/login', [AuthController::class, 'login'])->name('login.store');
+    Route::post('/pages/login', [AuthController::class, 'login'])
+        ->middleware('throttle:5,1')
+        ->name('login.store');
 });
 
 Route::middleware(['auth', 'admin'])->group(function () {
@@ -49,6 +53,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::delete('/master/jabatan/{position}', [PositionController::class, 'destroy'])->name('positions.destroy');
 
     Route::get('/master/lokasi-kantor', [OfficeLocationController::class, 'index'])->name('office-locations.index');
+    Route::get('/master/lokasi-kantor/resolve-peta', [OfficeLocationController::class, 'resolveMapLink'])->name('office-locations.resolve-map');
     Route::post('/master/lokasi-kantor', [OfficeLocationController::class, 'store'])->name('office-locations.store');
     Route::put('/master/lokasi-kantor/{officeLocation}', [OfficeLocationController::class, 'update'])->name('office-locations.update');
     Route::delete('/master/lokasi-kantor/{officeLocation}', [OfficeLocationController::class, 'destroy'])->name('office-locations.destroy');
@@ -65,6 +70,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     Route::get('/absensi', [AttendanceController::class, 'index'])->name('attendances.index');
     Route::post('/absensi/absen', [AttendanceController::class, 'checkIn'])->name('attendances.check-in');
+    Route::get('/absensi/rekap', [AttendanceReportController::class, 'index'])->name('attendances.recap');
+    Route::get('/absensi/rekap/export/{format}', [AttendanceReportController::class, 'export'])->name('attendances.recap.export');
 
     Route::get('/absensi/izin', [LeaveRequestController::class, 'index'])->name('leave-requests.index');
     Route::get('/absensi/izin/pending-count', [LeaveRequestController::class, 'pendingCount'])->name('leave-requests.pending-count');
@@ -78,6 +85,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::put('/pengaturan/hari-kerja', [WorkSettingController::class, 'update'])->name('work-settings.update');
 
 });
+
+Route::get('/absensi/foto/{attendance}', [AttendancePhotoController::class, 'show'])
+    ->middleware('signed')
+    ->name('attendance.photo');
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 

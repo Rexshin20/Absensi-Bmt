@@ -15,7 +15,7 @@
             'icon' => 'Fingerprint',
             'path' => '/absensi',
             'route' => 'attendances.index',
-            'active' => request()->routeIs('attendances.*'),
+            'active' => request()->routeIs('attendances.index'),
         ],
         [
             'title' => 'Izin & Cuti',
@@ -91,7 +91,7 @@
     ];
 @endphp
 
-<aside class="layout-vertical-nav">
+<aside class="layout-vertical-nav" id="app-navigation">
     <div class="nav-paper">
         <div class="nav-header">
             <a class="brand" href="{{ route('dashboard') }}">

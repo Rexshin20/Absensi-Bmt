@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\CheckInFailed;
 use App\Models\Attendance;
 use App\Models\Employee;
+use App\Models\OfficeLocation;
 use App\Services\AttendanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,31 +32,40 @@ class AttendanceController extends Controller
     {
         $validated = $request->validate([
             'date' => ['nullable', 'date'],
+            'location_id' => ['nullable', 'integer', 'exists:office_locations,id'],
         ], [
             'date.date' => 'Format tanggal tidak valid.',
+            'location_id.exists' => 'Lokasi kantor yang dipilih tidak ditemukan.',
         ]);
 
         $date = Carbon::parse($validated['date'] ?? now()->toDateString())->toDateString();
+        $locationId = $validated['location_id'] ?? null;
+        $selectedLocation = $locationId ? OfficeLocation::findOrFail($locationId) : null;
 
         $attendances = Attendance::with(['employee.position', 'officeLocation'])
             ->where('date', $date)
+            ->when($locationId, fn ($query) => $query->where('office_location_id', $locationId))
             ->orderBy('check_in_time')
             ->get();
 
-        $employees = Employee::with('officeLocation')
+        $employeesQuery = Employee::with('officeLocation')
             ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+            ->when($locationId, fn ($query) => $query->where('office_location_id', $locationId));
+        $employees = (clone $employeesQuery)->orderBy('name')->get();
 
-        $activeCount = $employees->count();
+        $activeCount = $employeesQuery->count();
         $presentCount = $attendances->where('status', 'present')->count();
         $lateCount = $attendances->where('status', 'late')->count();
-        $missingCount = max(0, $activeCount - $attendances->count());
+        $missingCount = max(0, $activeCount - $attendances->pluck('employee_id')->unique()->count());
+        $officeLocations = OfficeLocation::orderBy('name')->get();
 
         $day = Carbon::parse($date);
 
         return view('attendances.index', [
             'date' => $date,
+            'locationId' => $locationId,
+            'selectedLocation' => $selectedLocation,
+            'officeLocations' => $officeLocations,
             'dateLabel' => self::DAY_NAMES[$day->isoWeekday()] . ', ' . $day->format('d/m/Y'),
             'previousDate' => $day->copy()->subDay()->toDateString(),
             'nextDate' => $day->copy()->addDay()->toDateString(),
@@ -66,7 +76,7 @@ class AttendanceController extends Controller
             'presentCount' => $presentCount,
             'lateCount' => $lateCount,
             'missingCount' => $missingCount,
-        ]);
+        ] + AttendanceReportController::periodOptions());
     }
 
     public function checkIn(Request $request): RedirectResponse

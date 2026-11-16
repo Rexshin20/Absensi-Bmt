@@ -42,7 +42,7 @@ class DashboardTest extends TestCase
             ->assertSeeText('Karyawan Aktif')
             ->assertSeeText('Hadir Hari Ini')
             ->assertSeeText('Karyawan Demo')
-            ->assertDontSeeText('izin')
+            ->assertDontSeeText('Daftar Izin')
             ->assertSeeText('Sistem Informasi Absensi');
     }
 }

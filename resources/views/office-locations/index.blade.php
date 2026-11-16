@@ -177,7 +177,7 @@
                             <div class="form-control">
                                 <input id="map-search-input" type="search" placeholder=" " autocomplete="off"
                                        class="input">
-                                <label class="form-label-float" for="map-search-input">Cari nama tempat atau alamat</label>
+                                <label class="form-label-float" for="map-search-input">Cari tempat, koordinat, atau link Maps</label>
                             </div>
                             <button type="button" class="btn btn-outlined" id="map-search-button">Cari</button>
                         </div>
@@ -197,7 +197,8 @@
                             </button>
                         </div>
                         <p class="form-helper map-helper" style="margin-left: 0;">
-                            Klik titik kantor di peta. Alamat terisi otomatis dan masih bisa diubah manual.
+                            Ketik nama tempat untuk melihat saran otomatis. Bisa juga tempel koordinat
+                            (mis. -7.795580, 110.369490) atau link Google Maps.
                         </p>
 
                         <input type="hidden" name="latitude" id="latitude"
@@ -236,6 +237,17 @@
             var searchButton = document.getElementById('map-search-button');
             var resultsList = document.getElementById('map-results');
             var currentLocationButton = document.getElementById('use-current-location');
+
+            var resolveLinkUrl = @json(route('office-locations.resolve-map'));
+            var PHOTON_ENDPOINT = 'https://photon.komoot.io/api/';
+            var NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org/';
+            var AUTOCOMPLETE_DELAY = 350;
+            var AUTOCOMPLETE_MIN_LENGTH = 3;
+
+            var autocompleteTimer = null;
+            var autocompleteController = null;
+            var autocompleteSeq = 0;
+            var reverseTimer = null;
 
             var initialLat = parseFloat(latInput.value);
             var initialLng = parseFloat(lngInput.value);
@@ -309,17 +321,20 @@
             function fillAddressFromPoint(lat, lng) {
                 if (addressInput.value.trim() && addressInput.dataset.auto !== '1') return;
 
-                fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='
-                    + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lng) + '&accept-language=id')
-                    .then(function (response) { return response.json(); })
-                    .then(function (data) {
-                        if (!data || !data.display_name) return;
-                        if (addressInput.value.trim() && addressInput.dataset.auto !== '1') return;
+                clearTimeout(reverseTimer);
+                reverseTimer = setTimeout(function () {
+                    fetch(NOMINATIM_ENDPOINT + 'reverse?format=jsonv2&lat='
+                        + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lng) + '&accept-language=id')
+                        .then(function (response) { return response.json(); })
+                        .then(function (data) {
+                            if (!data || !data.display_name) return;
+                            if (addressInput.value.trim() && addressInput.dataset.auto !== '1') return;
 
-                        addressInput.value = data.display_name.slice(0, 500);
-                        addressInput.dataset.auto = '1';
-                    })
-                    .catch(function () {});
+                            addressInput.value = data.display_name.slice(0, 500);
+                            addressInput.dataset.auto = '1';
+                        })
+                        .catch(function () {});
+                }, 900);
             }
 
             function moveTo(lat, lng, zoom) {
@@ -327,23 +342,98 @@
                 setPoint(lat, lng);
             }
 
+            function normalizePoint(lat, lng) {
+                var latitude = parseFloat(lat);
+                var longitude = parseFloat(lng);
+
+                if (!isFinite(latitude) || !isFinite(longitude)) return null;
+                if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+
+                return { lat: latitude, lng: longitude };
+            }
+
+            function readDirectPoint(text) {
+                if (!text) return null;
+
+                var value = String(text).trim();
+                var match = value.match(/^(-?\d{1,3}(?:\.\d+)?)\s*[,;]\s*(-?\d{1,3}(?:\.\d+)?)$/);
+
+                if (match) return normalizePoint(match[1], match[2]);
+
+                match = value.match(/@(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/);
+                if (match) return normalizePoint(match[1], match[2]);
+
+                match = value.match(/[?&](?:q|query|ll|center|destination)=loc:?(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/i);
+                if (match) return normalizePoint(match[1], match[2]);
+
+                match = value.match(/!3d(-?\d{1,3}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/);
+                if (match) return normalizePoint(match[1], match[2]);
+
+                return null;
+            }
+
+            function isMapLink(text) {
+                return /^https?:\/\/(?:[a-z0-9-]+\.)*(?:goo\.gl|google\.[a-z.]+)\//i.test(String(text).trim());
+            }
+
+            function setSearching(active) {
+                searchButton.disabled = active;
+                searchButton.textContent = active ? 'Mencari...' : 'Cari';
+            }
+
+            function applyDirectPoint(point) {
+                moveTo(point.lat, point.lng, 17);
+                fillAddressFromPoint(point.lat, point.lng);
+                searchInput.value = '';
+                clearResults();
+                showMessage('');
+            }
+
+            function photonLabel(properties) {
+                var primary = properties.name || '';
+                var streetLine = properties.street
+                    ? properties.street + (properties.housenumber ? ' ' + properties.housenumber : '')
+                    : '';
+
+                if (primary && streetLine && primary.toLowerCase() !== streetLine.toLowerCase()) {
+                    primary = primary + ', ' + streetLine;
+                } else if (!primary) {
+                    primary = streetLine || properties.city || properties.county || properties.state || 'Titik peta';
+                }
+
+                var parts = [primary];
+
+                [properties.district, properties.city, properties.state].forEach(function (value) {
+                    if (!value) return;
+                    if (parts.join(', ').toLowerCase().indexOf(String(value).toLowerCase()) !== -1) return;
+                    parts.push(value);
+                });
+
+                return parts.join(', ');
+            }
+
             function renderResults(items) {
                 resultsList.innerHTML = '';
 
                 items.forEach(function (item) {
-                    var lat = parseFloat(item.lat);
-                    var lng = parseFloat(item.lon);
-                    if (!isFinite(lat) || !isFinite(lng)) return;
+                    var point = normalizePoint(item.lat, item.lng);
+                    if (!point) return;
 
                     var li = document.createElement('li');
                     var button = document.createElement('button');
                     button.type = 'button';
-                    button.textContent = item.display_name;
-                    button.title = item.display_name;
+                    button.textContent = item.label;
+                    button.title = item.label;
                     button.addEventListener('click', function () {
-                        moveTo(lat, lng, 16);
-                        addressInput.value = item.display_name.slice(0, 500);
-                        addressInput.dataset.auto = '1';
+                        moveTo(point.lat, point.lng, 16);
+
+                        if (item.address) {
+                            addressInput.value = item.address.slice(0, 500);
+                            addressInput.dataset.auto = '1';
+                        } else {
+                            fillAddressFromPoint(point.lat, point.lng);
+                        }
+
                         searchInput.value = '';
                         clearResults();
                         showMessage('');
@@ -355,37 +445,177 @@
                 resultsList.hidden = resultsList.children.length === 0;
             }
 
+            function nominatimSearch(query) {
+                fetch(NOMINATIM_ENDPOINT + 'search?format=jsonv2&limit=5&countrycodes=id'
+                    + '&accept-language=id&q=' + encodeURIComponent(query))
+                    .then(function (response) { return response.json(); })
+                    .then(function (items) {
+                        var results = (items || []).map(function (item) {
+                            return {
+                                lat: item.lat,
+                                lng: item.lon,
+                                label: item.display_name,
+                                address: item.display_name
+                            };
+                        });
+
+                        if (results.length === 0) {
+                            showMessage('Lokasi tidak ditemukan. Coba kata kunci lain, atau tempel koordinat/link Google Maps.');
+                            return;
+                        }
+
+                        renderResults(results);
+                    })
+                    .catch(function () {
+                        showMessage('Gagal mencari lokasi. Periksa koneksi internet lalu coba lagi.');
+                    })
+                    .finally(function () { setSearching(false); });
+            }
+
+            function photonSearch(query, allowFallback) {
+                if (autocompleteController) autocompleteController.abort();
+                autocompleteController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+
+                var sequence = ++autocompleteSeq;
+                var options = autocompleteController ? { signal: autocompleteController.signal } : undefined;
+
+                fetch(PHOTON_ENDPOINT + '?limit=6&lat=-2.5&lon=118&q=' + encodeURIComponent(query), options)
+                    .then(function (response) {
+                        if (!response.ok) throw new Error('photon');
+                        return response.json();
+                    })
+                    .then(function (data) {
+                        if (sequence !== autocompleteSeq) return;
+
+                        var items = ((data && data.features) || []).map(function (feature) {
+                            var coordinates = (feature.geometry && feature.geometry.coordinates) || [];
+                            var properties = feature.properties || {};
+                            var label = photonLabel(properties);
+
+                            return {
+                                lat: coordinates[1],
+                                lng: coordinates[0],
+                                label: label,
+                                address: label,
+                                countrycode: properties.countrycode || ''
+                            };
+                        }).filter(function (item) {
+                            return normalizePoint(item.lat, item.lng) !== null;
+                        });
+
+                        var localItems = items.filter(function (item) { return item.countrycode === 'ID'; });
+                        var results = localItems.length ? localItems : items;
+
+                        if (results.length === 0) {
+                            if (allowFallback) {
+                                nominatimSearch(query);
+                                return;
+                            }
+
+                            clearResults();
+                            return;
+                        }
+
+                        showMessage('');
+                        renderResults(results);
+
+                        if (allowFallback) setSearching(false);
+                    })
+                    .catch(function (error) {
+                        if (error && error.name === 'AbortError') return;
+                        if (sequence !== autocompleteSeq) return;
+
+                        if (allowFallback) {
+                            nominatimSearch(query);
+                        }
+                    });
+            }
+
+            function resolveMapLink(link) {
+                showMessage('');
+                clearResults();
+                setSearching(true);
+
+                fetch(resolveLinkUrl + '?url=' + encodeURIComponent(link), {
+                    headers: { Accept: 'application/json' }
+                })
+                    .then(function (response) {
+                        return response.json().then(function (body) {
+                            return { ok: response.ok, body: body };
+                        });
+                    })
+                    .then(function (result) {
+                        if (!result.ok) {
+                            showMessage(result.body && result.body.message
+                                ? result.body.message
+                                : 'Link Google Maps tidak bisa dibaca.');
+                            return;
+                        }
+
+                        applyDirectPoint({ lat: result.body.latitude, lng: result.body.longitude });
+                    })
+                    .catch(function () {
+                        showMessage('Gagal membaca link. Periksa koneksi internet lalu coba lagi.');
+                    })
+                    .finally(function () { setSearching(false); });
+            }
+
             function searchLocation() {
                 var query = searchInput.value.trim();
 
                 if (!query) {
-                    showMessage('Ketik nama tempat atau alamat yang dicari.');
+                    showMessage('Ketik nama tempat, tempel koordinat, atau link Google Maps.');
+                    return;
+                }
+
+                var directPoint = readDirectPoint(query);
+
+                if (directPoint) {
+                    applyDirectPoint(directPoint);
+                    return;
+                }
+
+                if (isMapLink(query)) {
+                    resolveMapLink(query);
                     return;
                 }
 
                 showMessage('');
                 clearResults();
-                searchButton.disabled = true;
-                searchButton.textContent = 'Mencari...';
+                setSearching(true);
+                photonSearch(query, true);
+            }
 
-                fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=id'
-                    + '&accept-language=id&q=' + encodeURIComponent(query))
-                    .then(function (response) { return response.json(); })
-                    .then(function (items) {
-                        if (!items || items.length === 0) {
-                            showMessage('Lokasi tidak ditemukan. Coba kata kunci lain.');
-                            return;
-                        }
+            function scheduleAutocomplete() {
+                clearTimeout(autocompleteTimer);
 
-                        renderResults(items);
-                    })
-                    .catch(function () {
-                        showMessage('Gagal mencari lokasi. Periksa koneksi internet lalu coba lagi.');
-                    })
-                    .finally(function () {
-                        searchButton.disabled = false;
-                        searchButton.textContent = 'Cari';
-                    });
+                var query = searchInput.value.trim();
+
+                if (!query) {
+                    clearResults();
+                    return;
+                }
+
+                var directPoint = readDirectPoint(query);
+
+                if (directPoint) {
+                    renderResults([{
+                        lat: directPoint.lat,
+                        lng: directPoint.lng,
+                        label: 'Gunakan koordinat ' + formatCoords(directPoint.lat, directPoint.lng),
+                        address: ''
+                    }]);
+                    return;
+                }
+
+                if (query.length < AUTOCOMPLETE_MIN_LENGTH || isMapLink(query)) {
+                    clearResults();
+                    return;
+                }
+
+                autocompleteTimer = setTimeout(function () {
+                    photonSearch(query, false);
+                }, AUTOCOMPLETE_DELAY);
             }
 
             map.on('click', function (event) {
@@ -396,6 +626,25 @@
             });
 
             searchButton.addEventListener('click', searchLocation);
+
+            searchInput.addEventListener('input', scheduleAutocomplete);
+
+            searchInput.addEventListener('paste', function (event) {
+                var clipboard = event.clipboardData || window.clipboardData;
+                var text = clipboard ? clipboard.getData('text') : '';
+                var directPoint = readDirectPoint(text);
+
+                if (directPoint) {
+                    event.preventDefault();
+                    applyDirectPoint(directPoint);
+                    return;
+                }
+
+                if (isMapLink(text)) {
+                    event.preventDefault();
+                    resolveMapLink(text.trim());
+                }
+            });
 
             searchInput.addEventListener('keydown', function (event) {
                 if (event.key === 'Enter') {

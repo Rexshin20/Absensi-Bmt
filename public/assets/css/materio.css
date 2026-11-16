@@ -730,7 +730,8 @@ select.input[multiple] { background-image: none; padding-right: 0.875rem; }
 .form-control:has(.input:focus) > .form-label-float,
 .form-control:has(.input:not(:placeholder-shown)) > .form-label-float,
 .form-control > select.input + .form-label-float,
-.form-control > input[type='date'] + .form-label-float {
+.form-control > input[type='date'] + .form-label-float,
+.form-control > input[type='month'] + .form-label-float {
   top: 0;
   font-size: 0.75rem;
   letter-spacing: 0.4px;
@@ -1292,6 +1293,12 @@ select.input[multiple] { background-image: none; padding-right: 0.875rem; }
 
 .navbar-right { display: flex; align-items: center; }
 
+.navbar-menu-toggle { display: none; margin-right: auto; }
+
+@media (max-width: 1199px) {
+  .navbar-menu-toggle { display: inline-flex; }
+}
+
 .avatar-badge {
   position: relative;
   margin-left: 0.5rem;
@@ -1370,6 +1377,44 @@ select.input[multiple] { background-image: none; padding-right: 0.875rem; }
 .notification-item .notification-time { font-size: 0.75rem; color: var(--text-disabled); white-space: nowrap; }
 .notification-item .notification-content { margin: 0 1rem; flex: 1 1 auto; display: flex; overflow: hidden; flex-direction: column; }
 .notification-footer { padding: 0.875rem 1rem; border-top: 1px solid var(--divider); }
+
+a.notification-item { color: inherit; }
+a.notification-item:hover { text-decoration: none; }
+
+.notification-trigger { position: relative; }
+
+.notification-badge {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.25rem;
+  border: 2px solid var(--bg-paper);
+  border-radius: 999px;
+  background-color: var(--error-main);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.notification-avatar {
+  background-color: rgba(8, 127, 75, 0.12);
+  color: var(--primary-main);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+[data-theme='dark'] .notification-avatar {
+  background-color: rgba(53, 168, 115, 0.16);
+  color: var(--primary-light);
+}
 
 /* --------------------------------------------------------------------------
    Footer

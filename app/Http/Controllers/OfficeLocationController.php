@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\OfficeLocation;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\View\View;
 
 class OfficeLocationController extends Controller
@@ -45,6 +47,107 @@ class OfficeLocationController extends Controller
         return redirect()
             ->route('office-locations.index')
             ->with('status', 'Lokasi kantor berhasil dihapus.');
+    }
+
+    public function resolveMapLink(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'url' => ['required', 'string', 'max:2048', 'url'],
+        ]);
+
+        $allowedHosts = [
+            'maps.app.goo.gl',
+            'goo.gl',
+            'google.com',
+            'www.google.com',
+            'maps.google.com',
+            'google.co.id',
+            'www.google.co.id',
+            'maps.google.co.id',
+        ];
+
+        $url = $data['url'];
+
+        for ($hop = 0; $hop < 5; $hop++) {
+            $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+            $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+
+            if ($scheme !== 'https' || ! in_array($host, $allowedHosts, true)) {
+                return response()->json(['message' => 'Link yang ditempel tidak didukung.'], 422);
+            }
+
+            $coordinates = $this->coordinatesFromUrl($url);
+
+            if ($coordinates !== null) {
+                return response()->json($coordinates);
+            }
+
+            $response = Http::withOptions(['allow_redirects' => false])
+                ->timeout(8)
+                ->withHeaders(['User-Agent' => 'AbsensiBMT/1.0'])
+                ->get($url);
+
+            if ($response->status() < 300 || $response->status() >= 400) {
+                break;
+            }
+
+            $location = $response->header('Location');
+
+            if (! $location) {
+                break;
+            }
+
+            $url = $this->absoluteUrl($url, $location);
+        }
+
+        return response()->json([
+            'message' => 'Koordinat tidak ditemukan pada link tersebut. Tempel link tempat yang sudah dibuka di Google Maps.',
+        ], 422);
+    }
+
+    private function coordinatesFromUrl(string $url): ?array
+    {
+        $patterns = [
+            '/@(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/',
+            '/[?&](?:q|query|ll|center|destination)=loc:?(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/i',
+            '/!3d(-?\d{1,3}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $url, $matches) !== 1) {
+                continue;
+            }
+
+            $latitude = (float) $matches[1];
+            $longitude = (float) $matches[2];
+
+            if (abs($latitude) <= 90 && abs($longitude) <= 180) {
+                return ['latitude' => $latitude, 'longitude' => $longitude];
+            }
+        }
+
+        return null;
+    }
+
+    private function absoluteUrl(string $base, string $location): string
+    {
+        if (preg_match('~^https?://~i', $location) === 1) {
+            return $location;
+        }
+
+        $parts = parse_url($base);
+        $scheme = $parts['scheme'] ?? 'https';
+        $host = $parts['host'] ?? '';
+
+        if (str_starts_with($location, '//')) {
+            return $scheme . ':' . $location;
+        }
+
+        if (str_starts_with($location, '/')) {
+            return $scheme . '://' . $host . $location;
+        }
+
+        return $scheme . '://' . $host . '/' . ltrim($location, '/');
     }
 
     private function validated(Request $request): array

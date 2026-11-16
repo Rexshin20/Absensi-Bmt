@@ -1,77 +1,70 @@
+@php
+    $pendingLeaveRequests = \App\Models\LeaveRequest::with(['employee', 'leaveType'])
+        ->where('status', 'pending')
+        ->orderBy('start_date')
+        ->take(5)
+        ->get();
+    $pendingLeaveTotal = \App\Models\LeaveRequest::where('status', 'pending')->count();
+@endphp
+
 <header class="layout-navbar">
     <div class="navbar-content-container">
         <div class="navbar-inner">
+            <button type="button" class="icon-btn navbar-menu-toggle" data-nav-toggle
+                    aria-label="buka menu navigasi" aria-controls="app-navigation">
+                <x-icon name="Menu" />
+            </button>
             <div class="navbar-right">
                 <button type="button" class="icon-btn d-none d-sm-inline-flex" data-theme-toggle aria-label="toggle dark mode">
                     <x-icon name="WeatherNight" class="theme-icon-light" />
                     <x-icon name="WeatherSunny" class="theme-icon-dark d-none" />
                 </button>
 
-                <div class="position-relative">
-                    <button type="button" class="icon-btn" data-menu-trigger="notification-menu"
-                            aria-label="notifications" aria-haspopup="true">
-                        <x-icon name="BellOutline" />
-                    </button>
-                    <div class="menu-popover notification-popover" id="notification-menu">
-                        <div class="notification-header">
-                            <span class="fw-600">Notifications</span>
-                            <span class="chip chip-primary chip-sm">8 New</span>
-                        </div>
-                        <div class="notification-body">
-                            <button type="button" class="notification-item">
-                                <span class="avatar"><img alt="Flora" src="{{ asset('images/avatars/4.png') }}"></span>
-                                <span class="notification-content">
-                                    <span class="notification-title">Congratulation Flora! 🎉</span>
-                                    <span class="notification-subtitle">Won the monthly best seller badge</span>
-                                </span>
-                                <span class="notification-time">Today</span>
-                            </button>
-                            <button type="button" class="notification-item">
-                                <span class="avatar" style="background-color: var(--primary-main); color: #fff;">VU</span>
-                                <span class="notification-content">
-                                    <span class="notification-title">New user registered.</span>
-                                    <span class="notification-subtitle">5 hours ago</span>
-                                </span>
-                                <span class="notification-time">Yesterday</span>
-                            </button>
-                            <button type="button" class="notification-item">
-                                <span class="avatar"><img alt="message" src="{{ asset('images/avatars/5.png') }}"></span>
-                                <span class="notification-content">
-                                    <span class="notification-title">New message received 👋🏻</span>
-                                    <span class="notification-subtitle">You have 10 unread messages</span>
-                                </span>
-                                <span class="notification-time">11 Aug</span>
-                            </button>
-                            <button type="button" class="notification-item">
-                                <img width="38" height="38" alt="paypal" src="{{ asset('images/misc/paypal.png') }}">
-                                <span class="notification-content">
-                                    <span class="notification-title">Paypal</span>
-                                    <span class="notification-subtitle">Received Payment</span>
-                                </span>
-                                <span class="notification-time">25 May</span>
-                            </button>
-                            <button type="button" class="notification-item">
-                                <span class="avatar"><img alt="order" src="{{ asset('images/avatars/3.png') }}"></span>
-                                <span class="notification-content">
-                                    <span class="notification-title">Revised Order 📦</span>
-                                    <span class="notification-subtitle">New order revised from john</span>
-                                </span>
-                                <span class="notification-time">19 Mar</span>
-                            </button>
-                            <button type="button" class="notification-item">
-                                <img width="38" height="38" alt="chart" src="{{ asset('images/misc/chart.png') }}">
-                                <span class="notification-content">
-                                    <span class="notification-title">Finance report has been generated</span>
-                                    <span class="notification-subtitle">25 hrs ago</span>
-                                </span>
-                                <span class="notification-time">27 Dec</span>
-                            </button>
-                        </div>
-                        <div class="notification-footer">
-                            <button type="button" class="btn btn-contained btn-full">Read All Notifications</button>
+                @if ($pendingLeaveTotal > 0)
+                    <div class="position-relative">
+                        <button type="button" class="icon-btn notification-trigger" data-menu-trigger="notification-menu"
+                                aria-label="{{ $pendingLeaveTotal }} pengajuan izin menunggu verifikasi" aria-haspopup="true">
+                            <x-icon name="BellOutline" />
+                            <span class="notification-badge">{{ $pendingLeaveTotal > 9 ? '9+' : $pendingLeaveTotal }}</span>
+                        </button>
+                        <div class="menu-popover notification-popover" id="notification-menu">
+                            <div class="notification-header">
+                                <span class="fw-600">Pengajuan Izin</span>
+                                <span class="chip chip-warning chip-sm">{{ $pendingLeaveTotal }} menunggu</span>
+                            </div>
+                            <div class="notification-body">
+                                @foreach ($pendingLeaveRequests as $leaveRequest)
+                                    @php
+                                        $leaveName = $leaveRequest->employee?->name ?? 'Karyawan';
+                                        $leaveWords = preg_split('/\s+/', trim($leaveName));
+                                        $leaveInitials = strtoupper(
+                                            mb_substr($leaveWords[0] ?? '', 0, 1) . mb_substr($leaveWords[1] ?? '', 0, 1)
+                                        );
+                                        if ($leaveInitials === '') {
+                                            $leaveInitials = '?';
+                                        }
+                                        $leaveRange = $leaveRequest->start_date->format('d/m/Y');
+                                        if (! $leaveRequest->end_date->equalTo($leaveRequest->start_date)) {
+                                            $leaveRange .= ' – ' . $leaveRequest->end_date->format('d/m/Y');
+                                        }
+                                    @endphp
+                                    <a href="{{ route('leave-requests.show', $leaveRequest) }}" class="notification-item">
+                                        <span class="avatar notification-avatar">{{ $leaveInitials }}</span>
+                                        <span class="notification-content">
+                                            <span class="notification-title">{{ $leaveName }}</span>
+                                            <span class="notification-subtitle">{{ $leaveRequest->leaveType?->name ?? 'Izin' }} · {{ $leaveRange }}</span>
+                                        </span>
+                                    </a>
+                                @endforeach
+                            </div>
+                            <div class="notification-footer">
+                                <a class="btn btn-contained btn-full" href="{{ route('leave-requests.index', ['status' => 'pending']) }}">
+                                    Lihat semua pengajuan
+                                </a>
+                            </div>
                         </div>
                     </div>
-                </div>
+                @endif
 
                 <div class="position-relative">
                     <span class="avatar-badge" data-menu-trigger="user-menu" role="button" tabindex="0" aria-label="user menu">

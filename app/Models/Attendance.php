@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\URL;
 
 class Attendance extends Model
 {
@@ -56,5 +57,18 @@ class Attendance extends Model
     public function sourceLabel(): string
     {
         return self::SOURCES[$this->source] ?? $this->source;
+    }
+
+    public function photoUrl(): ?string
+    {
+        if (! $this->photo_path) {
+            return null;
+        }
+
+        return URL::temporarySignedRoute(
+            'attendance.photo',
+            now()->addHours(6),
+            ['attendance' => $this->id]
+        );
     }
 }

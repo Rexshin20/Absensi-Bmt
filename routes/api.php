@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\LeaveController;
 use Illuminate\Support\Facades\Route;
 
@@ -10,6 +11,7 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/device-token', [DeviceTokenController::class, 'store']);
     Route::post('/attendance', [AttendanceController::class, 'checkIn']);
     Route::get('/attendance', [AttendanceController::class, 'index']);
     Route::get('/leave-types', [LeaveController::class, 'types']);

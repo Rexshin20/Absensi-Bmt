@@ -12,7 +12,9 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        $schedule->command('absensi:reminder')
+            ->dailyAt('07:50')
+            ->timezone(config('app.timezone'));
     }
 
     /**

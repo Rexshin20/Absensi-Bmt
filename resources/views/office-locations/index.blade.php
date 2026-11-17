@@ -15,6 +15,17 @@
         .location-coords { display: block; font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.4; white-space: nowrap; }
         .locations-radius { white-space: nowrap; }
 
+        .day-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr)); gap: 0.5rem; }
+        .day-option {
+            display: flex; align-items: center; gap: 0.5rem; min-height: 2.5rem; padding: 0 0.75rem;
+            border: 1px solid var(--divider); border-radius: 8px; background-color: var(--bg-paper);
+            font-size: 0.8125rem; color: var(--text-primary); cursor: pointer;
+            transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+        }
+        .day-option:hover { border-color: var(--primary-main); }
+        .day-option:has(input:checked) { border-color: var(--primary-main); background-color: rgba(8, 127, 75, 0.08); color: var(--primary-dark); font-weight: 500; }
+        .day-option input { margin: 0; accent-color: var(--primary-main); }
+
         .map-search { display: flex; align-items: flex-end; gap: 0.75rem; }
         .map-search .form-control { flex: 1 1 auto; min-width: 0; }
         .map-results { list-style: none; margin: 0.5rem 0 0; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid var(--divider); border-radius: 6px; background-color: var(--bg-paper); }
@@ -69,13 +80,14 @@
                 </div>
                 <table class="table" data-table
                        data-empty="Belum ada lokasi kantor. Klik tombol Tambah Lokasi untuk membuat yang pertama."
-                       style="min-width: 720px;" aria-label="daftar lokasi kantor">
+                       style="min-width: 840px;" aria-label="daftar lokasi kantor">
                     <thead>
                         <tr>
                             <th>Lokasi</th>
                             <th>Alamat</th>
                             <th>Koordinat</th>
                             <th class="align-right" data-no-search>Radius</th>
+                            <th data-no-search>Jam Kerja</th>
                             <th class="align-center">Status</th>
                             <th class="align-right" data-no-sort data-no-search>Aksi</th>
                         </tr>
@@ -93,6 +105,10 @@
                                        target="_blank" rel="noopener noreferrer" class="text-caption">Lihat di Maps</a>
                                 </td>
                                 <td class="align-right locations-radius" data-order="{{ $location->radius_m }}">{{ number_format($location->radius_m, 0, ',', '.') }} m</td>
+                                <td>
+                                    <span class="location-name">{{ $schedules[$location->id]['start'] }}</span>
+                                    <span class="location-coords">{{ implode(' ', array_map(fn ($day) => $dayShort[$day] ?? '', $schedules[$location->id]['days'])) }}</span>
+                                </td>
                                 <td class="align-center">
                                     @if ($location->is_active)
                                         <span class="chip chip-sm chip-success">Aktif</span>
@@ -141,6 +157,8 @@
                 <div class="grid">
                     <div class="grid-item col-12 col-lg-5">
                         <div class="location-form-fields">
+                            @php($selectedDays = array_map('intval', (array) old('work_days', $editLocation->work_days ?? [])))
+
                             <div class="form-control">
                                 <input id="name" name="name" type="text" placeholder=" "
                                        value="{{ old('name', $editLocation->name ?? '') }}"
@@ -162,6 +180,30 @@
                                     <label class="form-label-float" for="radius_m">Radius (meter)</label>
                                 </div>
                                 <p class="form-helper">Jarak maksimal karyawan bisa absen dari titik kantor.</p>
+                            </div>
+
+                            <div>
+                                <div class="form-control">
+                                    <input id="work_start_time" name="work_start_time" type="time"
+                                           value="{{ old('work_start_time', $editLocation->work_start_time ?? '') }}"
+                                           class="input @error('work_start_time') input-error @enderror">
+                                    <label class="form-label-float" for="work_start_time">Jam masuk (opsional)</label>
+                                </div>
+                                <p class="form-helper">Kosongkan untuk ikut pengaturan Hari Kerja.</p>
+                            </div>
+
+                            <div>
+                                <span class="form-label">Hari kerja (opsional)</span>
+                                <div class="day-options">
+                                    @foreach ($days as $value => $label)
+                                        <label class="day-option">
+                                            <input type="checkbox" name="work_days[]" value="{{ $value }}"
+                                                   @checked(in_array($value, $selectedDays, true))>
+                                            {{ $label }}
+                                        </label>
+                                    @endforeach
+                                </div>
+                                <p class="form-helper" style="margin-left: 0;">Kosongkan semua untuk ikut pengaturan Hari Kerja.</p>
                             </div>
 
                             <label class="checkbox-label">

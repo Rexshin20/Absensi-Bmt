@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Attendance;
 use App\Models\Employee;
+use App\Models\OfficeLocation;
 use App\Services\AttendanceService;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
@@ -21,7 +22,13 @@ class PageController extends Controller
         $presentCount = (clone $todayAttendances)->where('status', 'present')->count();
         $lateCount = (clone $todayAttendances)->where('status', 'late')->count();
         $checkedInCount = $presentCount + $lateCount;
-        $missingCount = max(0, $activeEmployees - $checkedInCount);
+        $expectedToday = Employee::query()
+            ->with('officeLocation:id,work_days')
+            ->where('is_active', true)
+            ->get()
+            ->filter(fn (Employee $employee) => AttendanceService::worksOn($employee->officeLocation, now()))
+            ->count();
+        $missingCount = max(0, $expectedToday - $checkedInCount);
         $latestAttendances = (clone $todayAttendances)
             ->with(['employee.position', 'officeLocation'])
             ->orderByDesc('check_in_time')
@@ -41,6 +48,14 @@ class PageController extends Controller
         $weeklyCounts = [];
         $weeklyCurrentIndex = -1;
         $workDays = AttendanceService::workDays();
+        $officeWorkDays = OfficeLocation::query()
+            ->where('is_active', true)
+            ->pluck('work_days')
+            ->filter()
+            ->flatten()
+            ->map(fn ($day) => (int) $day)
+            ->all();
+        $workDays = array_values(array_unique(array_merge($workDays, $officeWorkDays)));
 
         for ($day = $weekStart->copy(); $day->lte(Carbon::parse($today)); $day->addDay()) {
             if (! in_array($day->isoWeekday(), $workDays, true)) {
@@ -67,8 +82,8 @@ class PageController extends Controller
             'weeklyCounts' => $weeklyCounts,
             'weeklyCurrentIndex' => $weeklyCurrentIndex,
             'weeklyTotal' => array_sum($weeklyCounts),
-            'attendanceRate' => $activeEmployees > 0
-                ? (int) round($checkedInCount / $activeEmployees * 100)
+            'attendanceRate' => $expectedToday > 0
+                ? (int) round($checkedInCount / $expectedToday * 100)
                 : 0,
         ]);
     }

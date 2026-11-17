@@ -12,6 +12,8 @@ class OfficeLocation extends Model
         'latitude',
         'longitude',
         'radius_m',
+        'work_days',
+        'work_start_time',
         'is_active',
     ];
 
@@ -19,6 +21,7 @@ class OfficeLocation extends Model
         'latitude' => 'float',
         'longitude' => 'float',
         'radius_m' => 'integer',
+        'work_days' => 'array',
         'is_active' => 'boolean',
     ];
 }

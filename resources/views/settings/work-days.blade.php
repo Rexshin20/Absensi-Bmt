@@ -27,7 +27,7 @@
             <div class="d-flex align-center justify-between flex-wrap gap-3">
                 <div>
                     <h5 class="mb-1">Hari Kerja</h5>
-                    <p class="text-body2 mb-0">Pakai untuk menentukan status absen dan libur mingguan kantor.</p>
+                    <p class="text-body2 mb-0">Berlaku sebagai default. Lokasi kantor bisa punya hari kerja dan jam masuk sendiri di menu Lokasi Kantor.</p>
                 </div>
                 <span class="chip chip-sm">Jam masuk {{ $workStart }} WIB</span>
             </div>
@@ -87,7 +87,7 @@
                             </div>
 
                             <p class="form-helper work-helper">
-                                Hari yang tidak dicentang otomatis dianggap libur mingguan, contoh: centang Senin sampai Sabtu jika kantor libur setiap Minggu.
+                                Hari yang tidak dicentang otomatis dianggap libur mingguan. Pengaturan ini dipakai lokasi kantor yang tidak mengisi hari kerjanya sendiri.
                             </p>
                         </div>
                     </div>

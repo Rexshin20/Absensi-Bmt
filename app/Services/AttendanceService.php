@@ -6,6 +6,7 @@ use App\Exceptions\CheckInFailed;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\Holiday;
+use App\Models\OfficeLocation;
 use App\Models\Setting;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -24,16 +25,29 @@ class AttendanceService
         7 => 'Minggu',
     ];
 
-    public static function workStart(): string
+    public static function workStart(?OfficeLocation $location = null): string
     {
-        return Setting::get('work_start_time', self::DEFAULT_WORK_START);
+        return $location?->work_start_time ?: Setting::get('work_start_time', self::DEFAULT_WORK_START);
     }
 
-    public static function workDays(): array
+    public static function workDays(?OfficeLocation $location = null): array
     {
-        return collect(Setting::get('work_days', [1, 2, 3, 4, 5, 6]))
+        $days = $location?->work_days;
+
+        if (! is_array($days) || $days === []) {
+            $days = Setting::get('work_days', [1, 2, 3, 4, 5, 6]);
+        }
+
+        return collect($days)
             ->map(fn ($day) => (int) $day)
+            ->sort()
+            ->values()
             ->all();
+    }
+
+    public static function worksOn(?OfficeLocation $location, CarbonInterface $date): bool
+    {
+        return in_array((int) $date->isoWeekday(), self::workDays($location), true);
     }
 
     public function checkIn(
@@ -50,7 +64,9 @@ class AttendanceService
             throw new CheckInFailed('Karyawan ini sudah tidak aktif.');
         }
 
-        if (! in_array((int) $at->isoWeekday(), self::workDays(), true)) {
+        $location = $employee->officeLocation;
+
+        if (! in_array((int) $at->isoWeekday(), self::workDays($location), true)) {
             throw new CheckInFailed(self::DAY_NAMES[(int) $at->isoWeekday()] . ' adalah hari libur kantor.');
         }
 
@@ -67,8 +83,6 @@ class AttendanceService
         if (Attendance::where('employee_id', $employee->id)->where('date', $date)->exists()) {
             throw new CheckInFailed($employee->name . ' sudah absen hari ini.');
         }
-
-        $location = $employee->officeLocation;
 
         if (! $location || $location->latitude === null || $location->longitude === null) {
             throw new CheckInFailed('Lokasi kantor ' . $employee->name . ' belum diatur. Hubungi admin.');
@@ -89,7 +103,7 @@ class AttendanceService
             ));
         }
 
-        $workStart = self::workStart();
+        $workStart = self::workStart($location);
 
         return Attendance::create([
             'employee_id' => $employee->id,

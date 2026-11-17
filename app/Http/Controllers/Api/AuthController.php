@@ -65,8 +65,8 @@ class AuthController extends Controller
 
         return response()->json([
             'user' => $this->userPayload($user),
-            'work_start' => AttendanceService::workStart(),
-            'work_days' => AttendanceService::workDays(),
+            'work_start' => AttendanceService::workStart($employee?->officeLocation),
+            'work_days' => AttendanceService::workDays($employee?->officeLocation),
             'today' => $today ? [
                 'date' => $today->date->format('Y-m-d'),
                 'check_in_time' => $today->check_in_time->format('H:i'),

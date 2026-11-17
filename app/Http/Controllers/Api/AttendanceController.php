@@ -85,6 +85,7 @@ class AttendanceController extends Controller
 
         $start = Carbon::createFromFormat('Y-m-d', $month.'-01')->startOfMonth();
         $end = (clone $start)->copy()->endOfMonth();
+        $workDays = AttendanceService::workDays($employee->officeLocation);
 
         $attendances = Attendance::with('officeLocation')
             ->where('employee_id', $employee->id)
@@ -99,13 +100,14 @@ class AttendanceController extends Controller
             ->get()
             ->sum(fn (LeaveRequest $leave) => WorkingDayCalculator::count(
                 $leave->start_date->max($start),
-                $leave->end_date->min($end)
+                $leave->end_date->min($end),
+                $workDays
             ));
 
         return response()->json([
             'month' => $month,
             'summary' => [
-                'work_days' => WorkingDayCalculator::count($start, $end),
+                'work_days' => WorkingDayCalculator::count($start, $end, $workDays),
                 'present' => $attendances->where('status', 'present')->count(),
                 'late' => $attendances->where('status', 'late')->count(),
                 'leave' => (int) $leaveDays,

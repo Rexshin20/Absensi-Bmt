@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\OfficeLocation;
+use App\Services\AttendanceService;
 use App\Support\WorkingDayCalculator;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -113,6 +114,7 @@ class AttendanceReportController extends Controller
         $office = $locationId ? OfficeLocation::find($locationId) : null;
 
         $employees = Employee::query()
+            ->with('officeLocation')
             ->where('is_active', true)
             ->when($locationId, fn ($query) => $query->where('office_location_id', $locationId))
             ->orderBy('name')
@@ -134,7 +136,7 @@ class AttendanceReportController extends Controller
             ->get()
             ->groupBy('employee_id');
 
-        $totalWorkDays = WorkingDayCalculator::count($start, $end);
+        $totalWorkDays = WorkingDayCalculator::count($start, $end, AttendanceService::workDays($office));
         $rows = [];
 
         foreach ($employees as $index => $employee) {
@@ -143,7 +145,8 @@ class AttendanceReportController extends Controller
                 $from = $employee->join_date->copy();
             }
 
-            $workDays = $from->gt($end) ? 0 : WorkingDayCalculator::count($from, $end);
+            $employeeWorkDays = AttendanceService::workDays($employee->officeLocation);
+            $workDays = $from->gt($end) ? 0 : WorkingDayCalculator::count($from, $end, $employeeWorkDays);
 
             $records = $attendances->get($employee->id, collect());
             $present = $records->where('status', 'present')->count();
@@ -156,7 +159,8 @@ class AttendanceReportController extends Controller
             foreach ($leaves->get($employee->id, collect()) as $leave) {
                 $days = WorkingDayCalculator::count(
                     $leave->start_date->max($from),
-                    $leave->end_date->min($end)
+                    $leave->end_date->min($end),
+                    $employeeWorkDays
                 );
 
                 if ($days > 0) {

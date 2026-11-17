@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\OfficeLocation;
+use App\Services\AttendanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,26 @@ use Illuminate\View\View;
 
 class OfficeLocationController extends Controller
 {
+    private const DAYS = [
+        1 => 'Senin',
+        2 => 'Selasa',
+        3 => 'Rabu',
+        4 => 'Kamis',
+        5 => 'Jumat',
+        6 => 'Sabtu',
+        7 => 'Minggu',
+    ];
+
+    private const DAY_SHORT = [
+        1 => 'Sen',
+        2 => 'Sel',
+        3 => 'Rab',
+        4 => 'Kam',
+        5 => 'Jum',
+        6 => 'Sab',
+        7 => 'Min',
+    ];
+
     public function index(Request $request): View
     {
         $locations = OfficeLocation::orderBy('name')->get();
@@ -19,7 +40,16 @@ class OfficeLocationController extends Controller
             ? OfficeLocation::findOrFail($request->integer('edit'))
             : null;
 
-        return view('office-locations.index', compact('locations', 'editLocation'));
+        $days = self::DAYS;
+        $dayShort = self::DAY_SHORT;
+        $schedules = $locations->mapWithKeys(fn (OfficeLocation $location) => [
+            $location->id => [
+                'start' => AttendanceService::workStart($location),
+                'days' => AttendanceService::workDays($location),
+            ],
+        ]);
+
+        return view('office-locations.index', compact('locations', 'editLocation', 'days', 'dayShort', 'schedules'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -158,6 +188,9 @@ class OfficeLocationController extends Controller
             'latitude' => ['required', 'numeric', 'between:-90,90'],
             'longitude' => ['required', 'numeric', 'between:-180,180'],
             'radius_m' => ['required', 'integer', 'min:10', 'max:10000'],
+            'work_days' => ['nullable', 'array', 'min:1'],
+            'work_days.*' => ['integer', 'between:1,7'],
+            'work_start_time' => ['nullable', 'date_format:H:i'],
             'is_active' => ['nullable', 'boolean'],
         ], [
             'name.required' => 'Nama lokasi wajib diisi.',
@@ -174,9 +207,22 @@ class OfficeLocationController extends Controller
             'radius_m.integer' => 'Radius harus berupa angka bulat.',
             'radius_m.min' => 'Radius minimal 10 meter.',
             'radius_m.max' => 'Radius maksimal 10.000 meter.',
+            'work_days.array' => 'Format hari kerja tidak valid.',
+            'work_days.*.integer' => 'Hari kerja tidak valid.',
+            'work_days.*.between' => 'Hari kerja tidak valid.',
+            'work_start_time.date_format' => 'Format jam masuk tidak valid.',
             'is_active.boolean' => 'Status tidak valid.',
         ]);
 
+        $days = collect($request->input('work_days', []))
+            ->map(fn ($day) => (int) $day)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        $data['work_days'] = $days === [] ? null : $days;
+        $data['work_start_time'] = $data['work_start_time'] ?? null;
         $data['is_active'] = $request->boolean('is_active');
 
         return $data;

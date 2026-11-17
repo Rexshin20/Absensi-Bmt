@@ -21,10 +21,6 @@ class SendAbsensiReminder extends Command
         $now = now();
         $today = $now->toDateString();
 
-        if (! in_array((int) $now->isoWeekday(), AttendanceService::workDays(), true)) {
-            return self::SUCCESS;
-        }
-
         $isHoliday = Holiday::where('start_date', '<=', $today)
             ->where(function ($query) use ($today) {
                 $query->whereNull('end_date')->orWhere('end_date', '>=', $today);
@@ -55,6 +51,7 @@ class SendAbsensiReminder extends Command
         }
 
         $tokens = DeviceToken::query()
+            ->with('user.employee.officeLocation')
             ->whereHas('user.employee', function ($query) use ($today) {
                 $query->where('is_active', true)
                     ->whereDoesntHave('attendances', fn ($attendance) => $attendance->where('date', $today))
@@ -63,7 +60,13 @@ class SendAbsensiReminder extends Command
                         ->where('start_date', '<=', $today)
                         ->where('end_date', '>=', $today));
             })
-            ->get();
+            ->get()
+            ->filter(function (DeviceToken $deviceToken) use ($now) {
+                $employee = $deviceToken->user?->employee;
+
+                return $employee && AttendanceService::worksOn($employee->officeLocation, $now);
+            })
+            ->values();
 
         if ($tokens->isEmpty()) {
             $this->info('Tidak ada perangkat yang perlu dikirimi pengingat.');

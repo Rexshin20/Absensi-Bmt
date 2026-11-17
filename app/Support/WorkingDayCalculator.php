@@ -9,7 +9,7 @@ use Illuminate\Support\Carbon;
 
 class WorkingDayCalculator
 {
-    public static function count(CarbonInterface $start, CarbonInterface $end): int
+    public static function count(CarbonInterface $start, CarbonInterface $end, ?array $workDays = null): int
     {
         $cursor = Carbon::parse($start->toDateString());
         $last = Carbon::parse($end->toDateString());
@@ -20,7 +20,7 @@ class WorkingDayCalculator
 
         $workDays = array_map(
             'intval',
-            Setting::get('work_days', [1, 2, 3, 4, 5, 6])
+            $workDays ?? Setting::get('work_days', [1, 2, 3, 4, 5, 6])
         );
 
         $holidays = self::holidayDates($cursor, $last);

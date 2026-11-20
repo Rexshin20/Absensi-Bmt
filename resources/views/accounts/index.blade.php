@@ -118,6 +118,19 @@
 
                 <div class="modal-content">
                     <div class="form-control">
+                        <select id="employee_id" name="employee_id" class="input @error('employee_id') input-error @enderror">
+                            <option value="">Tanpa karyawan</option>
+                            @foreach ($employees as $employee)
+                                <option value="{{ $employee->id }}"
+                                    @selected((string) old('employee_id', $editAccount->employee_id ?? '') === (string) $employee->id)>
+                                    {{ $employee->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <label class="form-label-float" for="employee_id">Karyawan</label>
+                    </div>
+
+                    <div class="form-control">
                         <input id="name" name="name" type="text" placeholder=" "
                                value="{{ old('name', $editAccount->name ?? '') }}"
                                class="input @error('name') input-error @enderror" autocomplete="off">
@@ -149,26 +162,12 @@
                         <label class="form-label-float" for="role">Role</label>
                     </div>
 
-                    <div class="form-control">
-                        <select id="employee_id" name="employee_id" class="input @error('employee_id') input-error @enderror">
-                            <option value="">Tanpa karyawan</option>
-                            @foreach ($employees as $employee)
-                                <option value="{{ $employee->id }}"
-                                    @selected((string) old('employee_id', $editAccount->employee_id ?? '') === (string) $employee->id)>
-                                    {{ $employee->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <label class="form-label-float" for="employee_id">Karyawan</label>
-                    </div>
-
                     <p class="form-helper">
                         @if ($editAccount)
                             Kosongkan password jika tidak ingin mengubahnya.
                         @else
-                            Password minimal 8 karakter.
+                            Password minimal 8 karakter. Pilih karyawan untuk mengisi nama akun dan email otomatis.
                         @endif
-                        Pilih karyawan jika akun dipakai untuk absensi.
                     </p>
                 </div>
 
@@ -181,3 +180,43 @@
             </form>
     </x-crud-modal>
 @endsection
+
+@if (! $editAccount)
+    @push('scripts')
+        <script>
+            (function () {
+                var employeeNames = @json($employees->mapWithKeys(fn ($employee) => [$employee->id => $employee->name]));
+                var takenEmails = @json($accounts->pluck('email')->map(fn ($email) => strtolower($email))->values());
+                var employeeSelect = document.getElementById('employee_id');
+                var nameInput = document.getElementById('name');
+                var emailInput = document.getElementById('email');
+
+                function callName(fullName) {
+                    return fullName.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')[0] || 'karyawan';
+                }
+
+                function autoEmail(fullName) {
+                    var base = callName(fullName);
+                    var email = base + '@bmt.com';
+                    var index = 2;
+
+                    while (takenEmails.indexOf(email) !== -1) {
+                        email = base + index + '@bmt.com';
+                        index++;
+                    }
+
+                    return email;
+                }
+
+                employeeSelect.addEventListener('change', function () {
+                    var fullName = employeeNames[this.value];
+
+                    if (! fullName) return;
+
+                    nameInput.value = fullName;
+                    emailInput.value = autoEmail(fullName);
+                });
+            })();
+        </script>
+    @endpush
+@endif

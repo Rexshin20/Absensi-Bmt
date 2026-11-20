@@ -34,6 +34,14 @@
             margin: 0 0 12px;
         }
 
+        .office {
+            font-size: 11px;
+            font-weight: bold;
+            text-align: center;
+            margin: 12px 0 4px;
+            page-break-after: avoid;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -60,8 +68,6 @@
         td.center { text-align: center; }
         td.name { font-weight: bold; }
         td.note { font-size: 9px; }
-        td.zero { color: #1f2937; }
-        td.absent { color: #1f2937; }
 
         .footer {
             margin-top: 10px;
@@ -73,40 +79,47 @@
 </head>
 <body>
     <h1>REKAP ABSENSI BULANAN</h1>
-    <p class="subtitle">{{ $periodLabel }}</p>
-    <p class="meta">{{ $officeLabel }} · {{ $totalWorkDays }} hari kerja{{ $cutoffLabel ? ' ('.$cutoffLabel.')' : '' }}</p>
+    <p class="subtitle">{{ $periodLabel }}{{ $cutoffLabel ? ' ('.$cutoffLabel.')' : '' }}</p>
 
-    <table>
-        <thead>
-            <tr>
-                <th rowspan="2" style="width: 7%;">No.</th>
-                <th rowspan="2" class="name" style="width: 28%;">Nama Santri</th>
-                <th colspan="2">Masuk</th>
-                <th rowspan="2" style="width: 12%;">Tidak Masuk</th>
-                <th rowspan="2" class="name" style="width: 35%;">Keterangan</th>
-            </tr>
-            <tr>
-                <th style="width: 9%;">Tepat Waktu</th>
-                <th style="width: 9%;">Terlambat</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($rows as $row)
+    @if ($locationId)
+        <p class="meta">{{ $officeLabel }}</p>
+    @endif
+
+    @foreach ($groups as $group)
+        <p class="office">{{ $group['label'] }}</p>
+
+        <table>
+            <thead>
                 <tr>
-                    <td class="center">{{ $row['no'] }}</td>
-                    <td class="name">{{ $row['name'] }}</td>
-                    <td class="center">{{ $row['present'] }}</td>
-                    <td class="center">{{ $row['late'] }}</td>
-                    <td class="center {{ $row['absent'] > 0 ? 'absent' : 'zero' }}">{{ $row['absent'] }}</td>
-                    <td class="note">{{ $row['note'] }}</td>
+                    <th rowspan="2" style="width: 7%;">No.</th>
+                    <th rowspan="2" class="name" style="width: 28%;">Nama Santri</th>
+                    <th colspan="2">Masuk</th>
+                    <th rowspan="2" style="width: 12%;">Tidak Masuk</th>
+                    <th rowspan="2" class="name" style="width: 35%;">Keterangan</th>
                 </tr>
-            @empty
                 <tr>
-                    <td colspan="6" class="center">Belum ada karyawan aktif.</td>
+                    <th style="width: 9%;">Tepat Waktu</th>
+                    <th style="width: 9%;">Terlambat</th>
                 </tr>
-            @endforelse
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach ($group['rows'] as $row)
+                    <tr>
+                        <td class="center">{{ $row['no'] }}</td>
+                        <td class="name">{{ $row['name'] }}</td>
+                        <td class="center">{{ $row['present'] }}</td>
+                        <td class="center">{{ $row['late'] }}</td>
+                        <td class="center">{{ $row['absent'] }}</td>
+                        <td class="note">{{ $row['note'] }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endforeach
+
+    @if ($groups === [])
+        <p class="meta">Belum ada karyawan aktif.</p>
+    @endif
 
     <div class="footer">Dicetak {{ $generatedAt }} WIB · BMT Cinde Barokah</div>
 </body>

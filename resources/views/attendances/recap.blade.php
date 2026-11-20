@@ -13,6 +13,8 @@
         .recap-filter-month { width: 12rem; }
         .recap-filter-location { min-width: 13rem; }
         .recap-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .recap-office { color: var(--text-primary); font-size: 0.9375rem; font-weight: 600; text-align: center; margin: 1.25rem 0 0.5rem; }
+        .recap-office:first-child { margin-top: 0; }
         .recap-table { min-width: 760px; }
         .recap-table thead th { text-align: center; vertical-align: middle; }
         .recap-table thead th.recap-name { text-align: left; }
@@ -78,45 +80,48 @@
                                 Rekap Absensi — {{ $periodLabel }}
                             </div>
                             <p class="card-header-subheader">
-                                {{ $totalWorkDays }} hari kerja{{ $cutoffLabel ? ' ('.$cutoffLabel.')' : '' }} · {{ $officeLabel }}
+                                {{ $officeLabel }}{{ $cutoffLabel ? ' · '.$cutoffLabel : '' }}
                             </p>
                         </div>
                     </div>
                 </div>
-                <div style="overflow-x: auto;">
-                    <table class="table recap-table" aria-label="rekap absensi bulanan">
-                        <thead>
-                            <tr>
-                                <th rowspan="2" style="width: 3.5rem;">No.</th>
-                                <th rowspan="2" class="recap-name">Nama Santri</th>
-                                <th colspan="2">Masuk</th>
-                                <th rowspan="2">Tidak Masuk</th>
-                                <th rowspan="2" class="recap-name">Keterangan</th>
-                            </tr>
-                            <tr>
-                                <th>Tepat Waktu</th>
-                                <th>Terlambat</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($rows as $row)
-                                <tr>
-                                    <td class="recap-number">{{ $row['no'] }}</td>
-                                    <td class="recap-name">{{ $row['name'] }}</td>
-                                    <td class="recap-number">{{ $row['present'] }}</td>
-                                    <td class="recap-number">{{ $row['late'] }}</td>
-                                    <td class="recap-number recap-absent {{ $row['absent'] > 0 ? 'is-filled' : '' }}">{{ $row['absent'] }}</td>
-                                    <td class="recap-note">{{ $row['note'] }}</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="text-center" style="padding: 2.5rem 1rem; color: var(--text-secondary);">
-                                        Belum ada karyawan aktif{{ $locationId ? ' di lokasi ini' : '' }}.
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                <div class="card-body">
+                    @forelse ($groups as $group)
+                        <div class="recap-office">{{ $group['label'] }}</div>
+                        <div style="overflow-x: auto;">
+                            <table class="table recap-table" aria-label="rekap absensi {{ $group['label'] }}">
+                                <thead>
+                                    <tr>
+                                        <th rowspan="2" style="width: 3.5rem;">No.</th>
+                                        <th rowspan="2" class="recap-name">Nama Santri</th>
+                                        <th colspan="2">Masuk</th>
+                                        <th rowspan="2">Tidak Masuk</th>
+                                        <th rowspan="2" class="recap-name">Keterangan</th>
+                                    </tr>
+                                    <tr>
+                                        <th>Tepat Waktu</th>
+                                        <th>Terlambat</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($group['rows'] as $row)
+                                        <tr>
+                                            <td class="recap-number">{{ $row['no'] }}</td>
+                                            <td class="recap-name">{{ $row['name'] }}</td>
+                                            <td class="recap-number">{{ $row['present'] }}</td>
+                                            <td class="recap-number">{{ $row['late'] }}</td>
+                                            <td class="recap-number recap-absent {{ $row['absent'] > 0 ? 'is-filled' : '' }}">{{ $row['absent'] }}</td>
+                                            <td class="recap-note">{{ $row['note'] }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @empty
+                        <p class="text-body2 mb-0">
+                            Belum ada karyawan aktif{{ $locationId ? ' di lokasi ini' : '' }}.
+                        </p>
+                    @endforelse
                 </div>
             </div>
         </div>

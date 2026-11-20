@@ -114,7 +114,6 @@ class AttendanceReportController extends Controller
         $office = $locationId ? OfficeLocation::find($locationId) : null;
 
         $employees = Employee::query()
-            ->with('officeLocation')
             ->where('is_active', true)
             ->when($locationId, fn ($query) => $query->where('office_location_id', $locationId))
             ->orderBy('name')
@@ -136,63 +135,75 @@ class AttendanceReportController extends Controller
             ->get()
             ->groupBy('employee_id');
 
-        $totalWorkDays = WorkingDayCalculator::count($start, $end, AttendanceService::workDays($office));
-        $rows = [];
+        $groups = $locationId
+            ? [['label' => $office->name, 'office' => $office, 'members' => $employees]]
+            : $this->groupByOffice($employees);
 
-        foreach ($employees as $index => $employee) {
-            $from = $start->copy();
-            if ($employee->join_date && $employee->join_date->gt($from)) {
-                $from = $employee->join_date->copy();
-            }
+        $groupedRows = [];
 
-            $employeeWorkDays = AttendanceService::workDays($employee->officeLocation);
-            $workDays = $from->gt($end) ? 0 : WorkingDayCalculator::count($from, $end, $employeeWorkDays);
+        foreach ($groups as $group) {
+            $groupWorkDays = AttendanceService::workDays($group['office']);
+            $rows = [];
 
-            $records = $attendances->get($employee->id, collect());
-            $present = $records->where('status', 'present')->count();
-            $late = $records->where('status', 'late')->count();
-            $absent = max(0, $workDays - $present - $late);
-
-            $leaveDays = 0;
-            $leaveDetails = [];
-
-            foreach ($leaves->get($employee->id, collect()) as $leave) {
-                $days = WorkingDayCalculator::count(
-                    $leave->start_date->max($from),
-                    $leave->end_date->min($end),
-                    $employeeWorkDays
-                );
-
-                if ($days > 0) {
-                    $name = $leave->leaveType?->name ?? 'Izin';
-                    $leaveDetails[$name] = ($leaveDetails[$name] ?? 0) + $days;
-                    $leaveDays += $days;
+            foreach ($group['members']->values() as $index => $employee) {
+                $from = $start->copy();
+                if ($employee->join_date && $employee->join_date->gt($from)) {
+                    $from = $employee->join_date->copy();
                 }
+
+                $workDays = $from->gt($end) ? 0 : WorkingDayCalculator::count($from, $end, $groupWorkDays);
+
+                $records = $attendances->get($employee->id, collect());
+                $present = $records->where('status', 'present')->count();
+                $late = $records->where('status', 'late')->count();
+                $absent = max(0, $workDays - $present - $late);
+
+                $leaveDays = 0;
+                $leaveDetails = [];
+
+                foreach ($leaves->get($employee->id, collect()) as $leave) {
+                    $days = WorkingDayCalculator::count(
+                        $leave->start_date->max($from),
+                        $leave->end_date->min($end),
+                        $groupWorkDays
+                    );
+
+                    if ($days > 0) {
+                        $name = $leave->leaveType?->name ?? 'Izin';
+                        $leaveDetails[$name] = ($leaveDetails[$name] ?? 0) + $days;
+                        $leaveDays += $days;
+                    }
+                }
+
+                $notes = [];
+                foreach ($leaveDetails as $name => $days) {
+                    $notes[] = $name.' '.$days.' hari';
+                }
+
+                $unexplained = max(0, $absent - $leaveDays);
+                if ($unexplained > 0) {
+                    $notes[] = 'tanpa keterangan '.$unexplained.' hari';
+                }
+
+                if ($absent === 0) {
+                    $note = '—';
+                } else {
+                    $note = $notes === [] ? 'tanpa keterangan '.$absent.' hari' : implode(', ', $notes);
+                }
+
+                $rows[] = [
+                    'no' => $index + 1,
+                    'name' => $employee->name,
+                    'present' => $present,
+                    'late' => $late,
+                    'absent' => $absent,
+                    'note' => $note,
+                ];
             }
 
-            $notes = [];
-            foreach ($leaveDetails as $name => $days) {
-                $notes[] = $name.' '.$days.' hari';
-            }
-
-            $unexplained = max(0, $absent - $leaveDays);
-            if ($unexplained > 0) {
-                $notes[] = 'tanpa keterangan '.$unexplained.' hari';
-            }
-
-            if ($absent === 0) {
-                $note = '—';
-            } else {
-                $note = $notes === [] ? 'tanpa keterangan '.$absent.' hari' : implode(', ', $notes);
-            }
-
-            $rows[] = [
-                'no' => $index + 1,
-                'name' => $employee->name,
-                'present' => $present,
-                'late' => $late,
-                'absent' => $absent,
-                'note' => $note,
+            $groupedRows[] = [
+                'label' => $group['label'],
+                'rows' => $rows,
             ];
         }
 
@@ -203,11 +214,33 @@ class AttendanceReportController extends Controller
             'periodLabel' => $periodLabel,
             'officeLabel' => $office?->name ?? 'Semua lokasi kantor',
             'locationId' => $locationId,
-            'totalWorkDays' => $totalWorkDays,
             'cutoffLabel' => $cutoffLabel,
-            'rows' => $rows,
+            'groups' => $groupedRows,
             'generatedAt' => now()->format('d/m/Y H:i'),
         ];
+    }
+
+    private function groupByOffice($employees): array
+    {
+        $groups = [];
+
+        foreach (OfficeLocation::orderBy('id')->get() as $office) {
+            $members = $employees->filter(
+                fn ($employee) => (string) $employee->office_location_id === (string) $office->id
+            );
+
+            if ($members->isNotEmpty()) {
+                $groups[] = ['label' => $office->name, 'office' => $office, 'members' => $members];
+            }
+        }
+
+        $withoutOffice = $employees->filter(fn ($employee) => $employee->office_location_id === null);
+
+        if ($withoutOffice->isNotEmpty()) {
+            $groups[] = ['label' => 'Tanpa lokasi kantor', 'office' => null, 'members' => $withoutOffice];
+        }
+
+        return $groups;
     }
 
     private function csv(array $report): StreamedResponse
@@ -219,16 +252,20 @@ class AttendanceReportController extends Controller
 
             fwrite($out, "\xEF\xBB\xBF");
             fputcsv($out, ['REKAP ABSENSI BULANAN'], ';');
-            fputcsv($out, ['Periode', $report['periodLabel']], ';');
-            fputcsv($out, ['Lokasi', $report['officeLabel']], ';');
-            fputcsv($out, ['Hari kerja', $report['totalWorkDays'].($report['cutoffLabel'] ? ' ('.$report['cutoffLabel'].')' : '')], ';');
-            fwrite($out, "\r\n");
-            fputcsv($out, ['No', 'Nama Santri', 'Masuk Tepat Waktu', 'Masuk Terlambat', 'Tidak Masuk', 'Keterangan'], ';');
+            fputcsv($out, [
+                'Periode', $report['periodLabel'].($report['cutoffLabel'] ? ' ('.$report['cutoffLabel'].')' : ''),
+            ], ';');
 
-            foreach ($report['rows'] as $row) {
-                fputcsv($out, [
-                    $row['no'], $row['name'], $row['present'], $row['late'], $row['absent'], $row['note'],
-                ], ';');
+            foreach ($report['groups'] as $group) {
+                fwrite($out, "\r\n");
+                fputcsv($out, [$group['label']], ';');
+                fputcsv($out, ['No', 'Nama Santri', 'Masuk Tepat Waktu', 'Masuk Terlambat', 'Tidak Masuk', 'Keterangan'], ';');
+
+                foreach ($group['rows'] as $row) {
+                    fputcsv($out, [
+                        $row['no'], $row['name'], $row['present'], $row['late'], $row['absent'], $row['note'],
+                    ], ';');
+                }
             }
 
             fclose($out);
@@ -249,15 +286,6 @@ class AttendanceReportController extends Controller
         $options->setColumnWidth(17, 4);
         $options->setColumnWidth(13, 5);
         $options->setColumnWidth(38, 6);
-        $options->mergeCells(0, 1, 5, 1);
-        $options->mergeCells(1, 2, 5, 2);
-        $options->mergeCells(1, 3, 5, 3);
-        $options->mergeCells(1, 4, 5, 4);
-        $options->mergeCells(0, 6, 0, 7);
-        $options->mergeCells(1, 6, 1, 7);
-        $options->mergeCells(2, 6, 3, 6);
-        $options->mergeCells(4, 6, 4, 7);
-        $options->mergeCells(5, 6, 5, 7);
         $options->setPageSetup(new PageSetup(PageOrientation::PORTRAIT, PaperSize::A4, 0, 1));
         $options->setPageMargin(new PageMargin());
         // OpenSpout tidak meng-escape header/footer, jadi &P dan &N harus ditulis sebagai entitas XML.
@@ -315,6 +343,12 @@ class AttendanceReportController extends Controller
             ->setCellVerticalAlignment(CellVerticalAlignment::CENTER)
             ->setShouldWrapText()
             ->setBorder($border);
+        $officeStyle = (new Style())
+            ->setFontName($fontName)
+            ->setFontBold()
+            ->setFontSize(12)
+            ->setCellAlignment(CellAlignment::CENTER)
+            ->setCellVerticalAlignment(CellVerticalAlignment::CENTER);
         $footerStyle = (new Style())
             ->setFontName($fontName)
             ->setFontSize(9)
@@ -323,6 +357,9 @@ class AttendanceReportController extends Controller
             ->setCellVerticalAlignment(CellVerticalAlignment::CENTER)
             ->setBorder($border);
 
+        $row = 1;
+
+        $options->mergeCells(0, $row, 5, $row);
         $writer->addRow((new Row([
             Cell::fromValue('REKAP ABSENSI BULANAN', $titleStyle),
             Cell::fromValue(null, $titleStyle),
@@ -331,59 +368,78 @@ class AttendanceReportController extends Controller
             Cell::fromValue(null, $titleStyle),
             Cell::fromValue(null, $titleStyle),
         ]))->setHeight(28));
+        $row++;
 
-        $workDays = $report['totalWorkDays'].($report['cutoffLabel'] ? ' ('.$report['cutoffLabel'].')' : '');
+        $periodText = $report['periodLabel'].($report['cutoffLabel'] ? ' ('.$report['cutoffLabel'].')' : '');
 
-        foreach ([
-            ['Periode', $report['periodLabel']],
-            ['Lokasi', $report['officeLabel']],
-            ['Hari kerja', $workDays],
-        ] as $meta) {
-            $writer->addRow((new Row([
-                Cell::fromValue($meta[0], $labelStyle),
-                Cell::fromValue($meta[1], $valueStyle),
-                Cell::fromValue(null, $valueStyle),
-                Cell::fromValue(null, $valueStyle),
-                Cell::fromValue(null, $valueStyle),
-                Cell::fromValue(null, $valueStyle),
-            ]))->setHeight(18));
-        }
+        $options->mergeCells(1, $row, 5, $row);
+        $writer->addRow((new Row([
+            Cell::fromValue('Periode', $labelStyle),
+            Cell::fromValue($periodText, $valueStyle),
+            Cell::fromValue(null, $valueStyle),
+            Cell::fromValue(null, $valueStyle),
+            Cell::fromValue(null, $valueStyle),
+            Cell::fromValue(null, $valueStyle),
+        ]))->setHeight(18));
+        $row++;
 
         $writer->addRow((new Row([Cell::fromValue(null)]))->setHeight(8));
+        $row++;
 
-        $writer->addRow((new Row([
-            Cell::fromValue('No', $headerStyle),
-            Cell::fromValue('Nama Santri', $headerStyle),
-            Cell::fromValue('Masuk', $headerStyle),
-            Cell::fromValue(null, $headerStyle),
-            Cell::fromValue('Tidak Masuk', $headerStyle),
-            Cell::fromValue('Keterangan', $headerStyle),
-        ]))->setHeight(20));
-
-        $writer->addRow((new Row([
-            Cell::fromValue(null, $headerStyle),
-            Cell::fromValue(null, $headerStyle),
-            Cell::fromValue('Tepat Waktu', $headerStyle),
-            Cell::fromValue('Terlambat', $headerStyle),
-            Cell::fromValue(null, $headerStyle),
-            Cell::fromValue(null, $headerStyle),
-        ]))->setHeight(22));
-
-        foreach ($report['rows'] as $row) {
+        foreach ($report['groups'] as $group) {
+            $options->mergeCells(0, $row, 5, $row);
             $writer->addRow((new Row([
-                Cell::fromValue($row['no'], $centerStyle),
-                Cell::fromValue($row['name'], $nameStyle),
-                Cell::fromValue($row['present'], $centerStyle),
-                Cell::fromValue($row['late'], $centerStyle),
-                Cell::fromValue($row['absent'], $centerStyle),
-                Cell::fromValue($row['note'], $noteStyle),
+                Cell::fromValue($group['label'], $officeStyle),
+                Cell::fromValue(null, $officeStyle),
+                Cell::fromValue(null, $officeStyle),
+                Cell::fromValue(null, $officeStyle),
+                Cell::fromValue(null, $officeStyle),
+                Cell::fromValue(null, $officeStyle),
+            ]))->setHeight(22));
+            $row++;
+
+            $options->mergeCells(0, $row, 0, $row + 1);
+            $options->mergeCells(1, $row, 1, $row + 1);
+            $options->mergeCells(2, $row, 3, $row);
+            $options->mergeCells(4, $row, 4, $row + 1);
+            $options->mergeCells(5, $row, 5, $row + 1);
+
+            $writer->addRow((new Row([
+                Cell::fromValue('No', $headerStyle),
+                Cell::fromValue('Nama Santri', $headerStyle),
+                Cell::fromValue('Masuk', $headerStyle),
+                Cell::fromValue(null, $headerStyle),
+                Cell::fromValue('Tidak Masuk', $headerStyle),
+                Cell::fromValue('Keterangan', $headerStyle),
             ]))->setHeight(20));
+
+            $writer->addRow((new Row([
+                Cell::fromValue(null, $headerStyle),
+                Cell::fromValue(null, $headerStyle),
+                Cell::fromValue('Tepat Waktu', $headerStyle),
+                Cell::fromValue('Terlambat', $headerStyle),
+                Cell::fromValue(null, $headerStyle),
+                Cell::fromValue(null, $headerStyle),
+            ]))->setHeight(22));
+            $row += 2;
+
+            foreach ($group['rows'] as $data) {
+                $writer->addRow((new Row([
+                    Cell::fromValue($data['no'], $centerStyle),
+                    Cell::fromValue($data['name'], $nameStyle),
+                    Cell::fromValue($data['present'], $centerStyle),
+                    Cell::fromValue($data['late'], $centerStyle),
+                    Cell::fromValue($data['absent'], $centerStyle),
+                    Cell::fromValue($data['note'], $noteStyle),
+                ]))->setHeight(20));
+                $row++;
+            }
+
+            $writer->addRow((new Row([Cell::fromValue(null)]))->setHeight(8));
+            $row++;
         }
 
-        $writer->addRow(new Row([]));
-
-        $footerRow = 9 + count($report['rows']);
-        $options->mergeCells(0, $footerRow, 5, $footerRow);
+        $options->mergeCells(0, $row, 5, $row);
         $writer->addRow(new Row([
             Cell::fromValue('Dicetak '.$report['generatedAt'].' WIB · BMT Cinde Barokah', $footerStyle),
             Cell::fromValue(null, $footerStyle),

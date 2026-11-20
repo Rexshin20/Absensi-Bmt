@@ -93,7 +93,7 @@
                                 <thead>
                                     <tr>
                                         <th rowspan="2" style="width: 3.5rem;">No.</th>
-                                        <th rowspan="2" class="recap-name">Nama Santri</th>
+                                        <th rowspan="2" class="recap-name">Nama Karyawan</th>
                                         <th colspan="2">Masuk</th>
                                         <th rowspan="2">Tidak Masuk</th>
                                         <th rowspan="2" class="recap-name">Keterangan</th>

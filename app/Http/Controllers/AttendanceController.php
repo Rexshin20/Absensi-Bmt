@@ -6,6 +6,7 @@ use App\Exceptions\CheckInFailed;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\OfficeLocation;
+use App\Services\AttendanceRecapService;
 use App\Services\AttendanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -76,7 +77,7 @@ class AttendanceController extends Controller
             'presentCount' => $presentCount,
             'lateCount' => $lateCount,
             'missingCount' => $missingCount,
-        ] + AttendanceReportController::periodOptions());
+        ] + AttendanceRecapService::periodOptions());
     }
 
     public function checkIn(Request $request): RedirectResponse
